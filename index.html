@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <title>منصة طباعة - تعلم الكتابة العربية</title>
+    <meta name="description" content="منصة تعليمية تفاعلية متكاملة لتعلم الكتابة السريعة باللغة العربية على لوحة المفاتيح للمبتدئين والمحترفين" />
+    <meta property="og:title" content="منصة طباعة - تعلم الكتابة العربية" />
+    <meta property="og:description" content="منصة تعليمية تفاعلية متكاملة لتعلم الكتابة السريعة باللغة العربية على لوحة المفاتيح للمبتدئين والمحترفين" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800&family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        try {
+          var raw = localStorage.getItem('tibaa_user_settings_v1');
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            var isDark = false;
+            if (parsed.theme === 'dark') isDark = true;
+            else if (parsed.theme === 'light') isDark = false;
+            else if (parsed.theme === 'system') isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            if (isDark) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+
+            if (parsed.language) {
+              document.documentElement.setAttribute('lang', parsed.language);
+              document.documentElement.setAttribute('dir', parsed.language === 'ar' ? 'rtl' : 'ltr');
+            }
+          }
+        } catch(e) {}
+      })();
+    </script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased selection:bg-emerald-500 selection:text-white dark:bg-slate-950 dark:text-slate-100 min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
