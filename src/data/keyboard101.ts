@@ -272,3 +272,115 @@ export function findKeyForChar(char: string): CharKeyMatch | null {
   }
   return null;
 }
+
+// Lookup caches for physical key translation
+const CODE_TO_KEY_MAP = new Map<string, KeyboardKeyDef>();
+const EN_CHAR_TO_KEY_MAP = new Map<string, KeyboardKeyDef>();
+
+for (const row of KEYBOARD_ROWS) {
+  for (const key of row) {
+    if (key.code) {
+      CODE_TO_KEY_MAP.set(key.code, key);
+    }
+    if (key.labelEn) {
+      EN_CHAR_TO_KEY_MAP.set(key.labelEn.toLowerCase(), key);
+    }
+  }
+}
+
+/**
+ * Direct symbol mapping table for standard physical US English keycaps to Arabic 101 symbols
+ */
+const PHYSICAL_SYMBOL_MAP: Record<string, { unshifted: string; shifted?: string }> = {
+  '[': { unshifted: 'ج', shifted: '<' },
+  '{': { unshifted: '<' },
+  ']': { unshifted: 'د', shifted: '>' },
+  '}': { unshifted: '>' },
+  ';': { unshifted: 'ك', shifted: ':' },
+  ':': { unshifted: ':' },
+  "'": { unshifted: 'ط', shifted: '"' },
+  '"': { unshifted: '"' },
+  ',': { unshifted: 'و', shifted: ',' },
+  '<': { unshifted: ',' },
+  '.': { unshifted: 'ز', shifted: '.' },
+  '>': { unshifted: '.' },
+  '/': { unshifted: 'ظ', shifted: '؟' },
+  '?': { unshifted: '؟' },
+  '`': { unshifted: 'ذ', shifted: 'ّ' },
+  '~': { unshifted: 'ّ' },
+  '-': { unshifted: '-', shifted: '_' },
+  '_': { unshifted: '_' },
+  '=': { unshifted: '=', shifted: '+' },
+  '+': { unshifted: '+' },
+  '\\': { unshifted: '\\', shifted: '|' },
+  '|': { unshifted: '|' },
+};
+
+/**
+ * Maps a physical keyboard event (e.code, e.key, shiftKey) directly to the
+ * corresponding Arabic 101 character from the application's existing KEYBOARD_ROWS.
+ * 
+ * Works for any physical keyboard connected via OTG/USB/Bluetooth with English keycaps.
+ * Example: KeyF / 'f' -> 'ب', KeyJ / 'j' -> 'ت', KeyD / 'd' -> 'ي', KeyG / 'g' -> 'ل'.
+ */
+export function mapPhysicalKeyToArabic101(
+  code: string | undefined,
+  key: string | undefined,
+  shiftKey: boolean = false
+): string | null {
+  // 1. Space bar
+  if (code === 'Space' || key === ' ') {
+    return ' ';
+  }
+
+  // 2. Primary lookup: by physical hardware key code (e.g. 'KeyF', 'KeyJ', 'KeyD')
+  if (code && CODE_TO_KEY_MAP.has(code)) {
+    const keyDef = CODE_TO_KEY_MAP.get(code)!;
+    if (keyDef.isSpecial && keyDef.code !== 'Space') {
+      return null;
+    }
+    if (shiftKey && keyDef.shiftAr) {
+      return keyDef.shiftAr;
+    }
+    if (keyDef.labelAr) {
+      return keyDef.labelAr;
+    }
+  }
+
+  // 3. If e.key is already an Arabic character (e.g. OS layout is Arabic)
+  if (key && key.length === 1 && /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(key)) {
+    return key;
+  }
+
+  // 4. Secondary lookup: by English key letter on physical keycap (e.g. 'f' -> KeyF -> 'ب')
+  if (key && key.length === 1) {
+    const lower = key.toLowerCase();
+    const isUpper = key >= 'A' && key <= 'Z';
+    const effectiveShift = shiftKey || isUpper;
+
+    if (EN_CHAR_TO_KEY_MAP.has(lower)) {
+      const keyDef = EN_CHAR_TO_KEY_MAP.get(lower)!;
+      if (keyDef.isSpecial && keyDef.code !== 'Space') {
+        return null;
+      }
+      if (effectiveShift && keyDef.shiftAr) {
+        return keyDef.shiftAr;
+      }
+      if (keyDef.labelAr) {
+        return keyDef.labelAr;
+      }
+    }
+
+    // Check symbol table
+    if (PHYSICAL_SYMBOL_MAP[key]) {
+      const sym = PHYSICAL_SYMBOL_MAP[key];
+      if (shiftKey && sym.shifted) {
+        return sym.shifted;
+      }
+      return sym.unshifted;
+    }
+  }
+
+  return null;
+}
+

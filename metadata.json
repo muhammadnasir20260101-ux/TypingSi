@@ -1,6 +1,6 @@
 {
-  "name": "منصة طباعة - تعلم الكتابة العربية",
-  "description": "منصة تعليمية تفاعلية متكاملة لتعلم الكتابة السريعة باللغة العربية على لوحة المفاتيح للمبتدئين والمحترفين",
+  "name": "Typing Sikhi",
+  "description": "Typing Sikhi — Arabic Touch Typing Learning Platform developed by Md Nasir Hossain",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

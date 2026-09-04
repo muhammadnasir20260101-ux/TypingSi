@@ -230,26 +230,46 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-slate-200 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xs py-8 pb-24 md:pb-8 text-xs text-slate-500 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800 dark:text-slate-200 font-['Noto_Naskh_Arabic',sans-serif]">
-              {settings.language === 'en'
-                ? 'TIBAA — Arabic Touch Typing Learning Platform'
-                : settings.language === 'bn'
-                ? 'ত্বিবাআ — আরবি টাচ টাইপিং শেখার পূর্ণাঙ্গ প্ল্যাটফর্ম'
-                : 'طِبَاعَة — المنصة العربية المتكاملة لتعليم الطباعة السريعة باللمس'}
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-bold">
-              {settings.language === 'en'
-                ? 'Offline Ready ⚡'
-                : settings.language === 'bn'
-                ? 'অফলাইনে সক্রিয় ⚡'
-                : 'يعمل دون إنترنت ⚡'}
-            </span>
+      <footer id="app-footer" className="mt-auto border-t border-slate-200 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xs py-8 pb-24 md:pb-8 text-xs text-slate-500 transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-center gap-3 text-center sm:text-start">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-800 dark:text-slate-200">
+                Typing Sikhi
+              </span>
+              <span className="text-slate-400 dark:text-slate-500 hidden sm:inline">
+                — {settings.language === 'en'
+                  ? 'Arabic Touch Typing Platform'
+                  : settings.language === 'bn'
+                  ? 'আরবি টাচ টাইপিং শেখার প্ল্যাটফর্ম'
+                  : 'منصة تعليم الطباعة العربية باللمس'}
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-bold">
+                {settings.language === 'en'
+                  ? 'Offline Ready ⚡'
+                  : settings.language === 'bn'
+                  ? 'অফলাইনে সক্রিয় ⚡'
+                  : 'يعمل دون إنترنت ⚡'}
+              </span>
+            </div>
+
+            {/* Developer Attribution */}
+            <div className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 font-medium">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span>
+                {settings.language === 'bn'
+                  ? 'ডেভেলপার:'
+                  : settings.language === 'ar'
+                  ? 'المطور:'
+                  : 'Developer:'}
+              </span>
+              <span className="font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/70">
+                Md Nasir Hossain
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4 text-slate-400">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-slate-400">
             <span>
               {settings.language === 'en'
                 ? 'Arabic 101 Standard Keyboard'

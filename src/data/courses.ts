@@ -12,7 +12,7 @@ export const COURSES: Course[] = [
     descriptionBn: 'সঠিক হাতের অবস্থান ও অ্যাঙ্কর কী (ب এবং ت) শিখুন।',
     category: 'basics',
     iconName: 'Keyboard',
-    lessonIds: ['l-1-1', 'l-1-2', 'l-1-3', 'l-1-4'],
+    lessonIds: ['l-1-0', 'l-1-1', 'l-1-2', 'l-1-3', 'l-1-4'],
   },
   {
     id: 'course-2',
@@ -161,6 +161,22 @@ export const COURSES: Course[] = [
 
 export const ALL_LESSONS: Lesson[] = [
   // Course 1: Basics
+  {
+    id: 'l-1-0',
+    courseId: 'course-1',
+    level: 1,
+    order: 0,
+    titleAr: 'اختبار المفتاح الأساسي: ب ب ب ب ب (F)',
+    titleEn: 'OTG Physical Keyboard Test: ب ب ب ب ب (F)',
+    titleBn: 'ফিজিক্যাল কিবোর্ড টেস্ট: ب ب ب ب ب (F)',
+    descriptionAr: 'اضغط مفتاح F على لوحة المفاتيح الحقيقية لكتابة حرف الباء (ب) والمسافة.',
+    descriptionEn: 'Press F on your physical keyboard to type Baa (ب) and Space. Moves 1 position per key.',
+    descriptionBn: 'আপনার ফিজিক্যাল কিবোর্ডের F কী চেপে (ب) এবং স্পেস টাইপ করুন।',
+    difficulty: 'beginner',
+    targetText: 'ب ب ب ب ب',
+    focusKeys: ['ب', ' '],
+    estimatedSeconds: 30,
+  },
   {
     id: 'l-1-1',
     courseId: 'course-1',

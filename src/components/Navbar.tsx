@@ -156,11 +156,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Keyboard className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div className="shrink-0">
-              <h1 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white font-['Noto_Naskh_Arabic','Alexandria',sans-serif] leading-tight">
-                طِبَاعَة
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+                Typing Sikhi
               </h1>
               <span className="text-[10px] block font-semibold text-emerald-600 dark:text-emerald-400 leading-tight">
-                {settings.language === 'en' ? 'Arabic Typing' : settings.language === 'bn' ? 'আরবি টাইপিং' : 'الطباعة العربية'}
+                {settings.language === 'en' ? 'Arabic Typing Platform' : settings.language === 'bn' ? 'আরবি টাইপিং প্ল্যাটফর্ম' : 'طِبَاعَة — تعلم الطباعة'}
               </span>
             </div>
           </div>

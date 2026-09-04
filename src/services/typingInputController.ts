@@ -1,5 +1,5 @@
 import { TypingMode } from '../types';
-import { KEYBOARD_ROWS } from '../data/keyboard101';
+import { KEYBOARD_ROWS, mapPhysicalKeyToArabic101 } from '../data/keyboard101';
 
 export type CharStatus = 'pending' | 'current' | 'correct' | 'incorrect';
 
@@ -144,13 +144,8 @@ PHYSICAL_CODE_MAP.set('Space', { unshifted: ' ', shifted: ' ' });
  * Maps a physical keyboard event (e.code + shiftKey) to the Arabic 101 character.
  * This allows typing Arabic even if the user's OS is currently using an English layout.
  */
-export function getArabicCharFromPhysicalKey(code: string, shift: boolean): string | null {
-  const mapping = PHYSICAL_CODE_MAP.get(code);
-  if (!mapping) return null;
-  if (shift && mapping.shifted) {
-    return mapping.shifted;
-  }
-  return mapping.unshifted || null;
+export function getArabicCharFromPhysicalKey(code: string, shift: boolean, key?: string): string | null {
+  return mapPhysicalKeyToArabic101(code, key, shift);
 }
 
 /**
@@ -396,7 +391,20 @@ export class TypingInputController {
     str: string,
     source: 'virtual' | 'physical' = 'virtual'
   ): ProcessInputResult[] {
-    const chars = segmentArabicText(str);
+    // If incoming string has English characters (e.g. Android OTG input event synthesizing keycap letter like 'f'),
+    // translate each letter to its Arabic 101 character so 'f' strictly becomes 'ب'
+    let sanitized = '';
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      if (/[a-zA-Z]/.test(ch)) {
+        const mapped = mapPhysicalKeyToArabic101(undefined, ch, ch >= 'A' && ch <= 'Z');
+        sanitized += mapped || ch;
+      } else {
+        sanitized += ch;
+      }
+    }
+
+    const chars = segmentArabicText(sanitized);
     const results: ProcessInputResult[] = [];
     for (const char of chars) {
       if (this.isFinished) break;
@@ -462,29 +470,25 @@ export class TypingInputController {
       return { handled: false };
     }
 
-    if (e.key === 'Backspace') {
+    if (e.key === 'Backspace' || e.code === 'Backspace') {
       if (e.preventDefault) e.preventDefault();
       this.handleBackspace('physical');
       return { handled: true };
     }
 
-    if (e.key === 'Tab') {
+    if (e.key === 'Tab' || e.code === 'Tab') {
       if (e.preventDefault) e.preventDefault();
       return { handled: true };
     }
 
-    // Determine Arabic character
-    let charToProcess: string | null = null;
+    // Determine Arabic character strictly from existing Arabic 101 keyboard layout
+    let charToProcess = mapPhysicalKeyToArabic101(e.code, e.key, e.shiftKey);
 
-    // Check if e.key is already an Arabic character or Space or standard punctuation
-    const isArabicChar = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]/.test(e.key);
-    if (isArabicChar && e.key.length === 1) {
-      charToProcess = e.key;
-    } else {
-      // Map physical key code to Arabic 101 layout
-      const mapped = getArabicCharFromPhysicalKey(e.code, e.shiftKey);
-      if (mapped) {
-        charToProcess = mapped;
+    if (!charToProcess) {
+      // Fallback: Check if e.key is already an Arabic character or Space
+      const isArabicChar = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]/.test(e.key);
+      if (isArabicChar && e.key.length === 1) {
+        charToProcess = e.key;
       }
     }
 

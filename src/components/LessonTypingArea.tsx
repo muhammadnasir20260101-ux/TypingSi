@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle, Clock, RotateCcw, Target, Zap } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, RotateCcw, Target, Zap, Keyboard } from 'lucide-react';
 import { FontSize, Language, TypingMode } from '../types';
+import { mapPhysicalKeyToArabic101 } from '../data/keyboard101';
 
 interface LessonTypingAreaProps {
   targetText: string;
@@ -47,11 +48,19 @@ export const LessonTypingArea: React.FC<LessonTypingAreaProps> = ({
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState<boolean>(true);
+  const [isPhysicalKeyboardConnected, setIsPhysicalKeyboardConnected] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('tibaa_physical_keyboard_connected') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const currentCharRef = useRef<HTMLSpanElement>(null);
 
   // Buffer tracking for mobile virtual keyboard input without resetting input.value on every character
   const lastValueRef = useRef<string>('');
   const lastBackspaceTimeRef = useRef<number>(0);
+  const lastHandledKeyTimeRef = useRef<number>(0);
 
   const activeIndex = currentIndex !== undefined ? currentIndex : typedText.length;
 
@@ -149,17 +158,28 @@ export const LessonTypingArea: React.FC<LessonTypingAreaProps> = ({
     // Detect virtual keyboard IME composition state on Android/mobile
     const isVirtualIme = e.key === 'Unidentified' || e.keyCode === 229;
     if (isVirtualIme) {
-      // Do NOT prevent default or process here. Let onInput/onBeforeInput receive the character!
+      // Let onInput/onBeforeInput receive mobile virtual keyboard character!
       return;
     }
 
-    if (e.key === 'Tab') {
+    // Valid physical key detected on hardware keyboard (OTG/USB/Bluetooth)
+    if (!isPhysicalKeyboardConnected) {
+      setIsPhysicalKeyboardConnected(true);
+      try {
+        localStorage.setItem('tibaa_physical_keyboard_connected', 'true');
+      } catch {
+        // ignore
+      }
+    }
+
+    if (e.key === 'Tab' || e.code === 'Tab') {
       e.preventDefault();
       return;
     }
 
-    if (e.key === 'Backspace') {
+    if (e.key === 'Backspace' || e.code === 'Backspace') {
       e.preventDefault();
+      lastHandledKeyTimeRef.current = Date.now();
       lastBackspaceTimeRef.current = Date.now();
       onBackspace();
       return;
@@ -167,33 +187,54 @@ export const LessonTypingArea: React.FC<LessonTypingAreaProps> = ({
 
     // Pass to custom physical key handler if provided
     if (onPhysicalKeyDown) {
+      lastHandledKeyTimeRef.current = Date.now();
       onPhysicalKeyDown(e);
       return;
     }
 
-    // Default physical key capture for single character
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    // Default physical key capture: map physical key strictly to Arabic 101 character
+    const mappedChar = mapPhysicalKeyToArabic101(e.code, e.key, e.shiftKey);
+    if (mappedChar) {
       e.preventDefault();
-      onKeyPress(e.key);
+      lastHandledKeyTimeRef.current = Date.now();
+      onKeyPress(mappedChar);
+      return;
+    }
+
+    // Direct single character check
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]/.test(e.key)) {
+        e.preventDefault();
+        lastHandledKeyTimeRef.current = Date.now();
+        onKeyPress(e.key);
+        return;
+      }
     }
   };
 
   /**
    * Primary virtual keyboard input handler (for Android Chrome Gboard, Samsung Keyboard, iOS, etc.)
-   * Inspects value delta without resetting input.value on every keystroke, preserving IME state.
    */
   const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
     if (isFinished) return;
     const inputElem = inputRef.current;
     if (!inputElem) return;
 
+    // Deduplicate: If this input event was synthesized by Android immediately after a physical keydown, ignore it completely
+    if (Date.now() - lastHandledKeyTimeRef.current < 250) {
+      inputElem.value = '';
+      lastValueRef.current = '';
+      return;
+    }
+
+    const nativeEvent = e.nativeEvent as InputEvent;
     const currentVal = inputElem.value;
     const prevVal = lastValueRef.current;
 
     // 1. Backspace / Deletion detected
-    if (currentVal.length < prevVal.length) {
-      lastValueRef.current = currentVal;
-      // Debounce if keydown already triggered backspace within 100ms
+    if (nativeEvent?.inputType === 'deleteContentBackward' || currentVal.length < prevVal.length) {
+      inputElem.value = '';
+      lastValueRef.current = '';
       if (Date.now() - lastBackspaceTimeRef.current > 100) {
         lastBackspaceTimeRef.current = Date.now();
         onBackspace();
@@ -201,32 +242,45 @@ export const LessonTypingArea: React.FC<LessonTypingAreaProps> = ({
       return;
     }
 
-    // 2. Character addition detected
-    if (currentVal.length > prevVal.length) {
-      const newlyAdded = currentVal.slice(prevVal.length);
-      lastValueRef.current = currentVal;
+    // 2. Character addition / input detected
+    let newlyAdded = '';
+    if (nativeEvent?.data) {
+      newlyAdded = nativeEvent.data;
+    } else if (currentVal.length > prevVal.length) {
+      newlyAdded = currentVal.slice(prevVal.length);
+    } else if (currentVal !== prevVal) {
+      newlyAdded = currentVal;
+    } else if (currentVal.length > 0) {
+      newlyAdded = currentVal;
+    }
 
-      if (onVirtualInput) {
-        onVirtualInput(newlyAdded);
-      } else {
-        for (const char of newlyAdded) {
-          onKeyPress(char);
+    if (newlyAdded) {
+      // If any English characters are received (e.g. from Android OTG input event synthesizing keycap letter 'f'),
+      // map them strictly to their Arabic 101 character so 'f' strictly becomes 'ب'
+      let sanitized = '';
+      for (let i = 0; i < newlyAdded.length; i++) {
+        const ch = newlyAdded[i];
+        if (/[a-zA-Z]/.test(ch)) {
+          const mapped = mapPhysicalKeyToArabic101(undefined, ch, ch >= 'A' && ch <= 'Z');
+          sanitized += mapped || ch;
+        } else {
+          sanitized += ch;
         }
       }
 
-      // If buffer becomes excessively long (> 180 chars), trim leading characters without resetting cursor
-      if (inputElem.value.length > 180) {
-        const trimmed = inputElem.value.slice(-60);
-        inputElem.value = trimmed;
-        lastValueRef.current = trimmed;
+      if (onVirtualInput) {
+        onVirtualInput(sanitized);
+      } else {
+        for (const char of sanitized) {
+          onKeyPress(char);
+        }
       }
-      return;
     }
 
-    // 3. Fallback: length unchanged but text replaced
-    if (currentVal !== prevVal) {
-      lastValueRef.current = currentVal;
-    }
+    // Clear input element and buffer tracker so every subsequent keystroke
+    // (including repeated identical characters like 'ب' after 'ب') triggers reliably
+    inputElem.value = '';
+    lastValueRef.current = '';
   };
 
   /**
@@ -311,8 +365,38 @@ export const LessonTypingArea: React.FC<LessonTypingAreaProps> = ({
           </div>
         </div>
 
-        {/* Action / Mode Pill */}
+        {/* Action / Mode Pill & Physical Keyboard Status */}
         <div className="flex items-center gap-2">
+          {isPhysicalKeyboardConnected ? (
+            <span
+              id="physical-keyboard-status-badge"
+              className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 shadow-xs animate-in fade-in"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>
+                {lang === 'bn'
+                  ? '🟢 ফিজিক্যাল কিবোর্ড সংযুক্ত'
+                  : lang === 'en'
+                  ? '🟢 Physical Keyboard Connected'
+                  : '🟢 لوحة مفاتيح حقيقية متصلة'}
+              </span>
+            </span>
+          ) : (
+            <span
+              id="physical-keyboard-ready-badge"
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full"
+            >
+              <Keyboard className="w-3.5 h-3.5 text-slate-400" />
+              <span>
+                {lang === 'bn'
+                  ? 'ওটিজি কিবোর্ড: প্রেস করুন'
+                  : lang === 'en'
+                  ? 'OTG Keyboard: Press key'
+                  : 'لوحة OTG: اضغط أي مفتاح'}
+              </span>
+            </span>
+          )}
+
           <span
             className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
               typingMode === 'strict'
