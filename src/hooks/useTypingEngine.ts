@@ -214,6 +214,7 @@ export function useTypingEngine({
         ctrlKey: e.ctrlKey,
         metaKey: e.metaKey,
         altKey: e.altKey,
+        repeat: e.repeat,
         preventDefault: () => e.preventDefault(),
       });
 

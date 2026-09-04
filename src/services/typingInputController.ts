@@ -190,6 +190,7 @@ export class TypingInputController {
   private backspacesCount: number = 0;
   private mistakeChars: Record<string, number> = {};
   private strictErrorChar: string | null = null;
+  private lastBackspaceTime: number = 0;
 
   private onComplete?: (stats: TypingEngineStats) => void;
   private onCharacterAccepted?: (result: ProcessInputResult) => void;
@@ -460,6 +461,7 @@ export class TypingInputController {
     ctrlKey?: boolean;
     metaKey?: boolean;
     altKey?: boolean;
+    repeat?: boolean;
     preventDefault?: () => void;
   }): { handled: boolean; result?: ProcessInputResult } {
     if (this.isFinished) return { handled: false };
@@ -470,8 +472,27 @@ export class TypingInputController {
       return { handled: false };
     }
 
+    // Auto-repeat protection (Rule 5):
+    // ONE physical press = ONE typing action.
+    // If the user holds a key down, it must NOT suddenly produce 5–6 characters.
+    if (e.repeat) {
+      if (e.key === 'Backspace' || e.code === 'Backspace') {
+        const now = Date.now();
+        if (now - this.lastBackspaceTime >= 120) {
+          this.lastBackspaceTime = now;
+          this.handleBackspace('physical');
+        }
+        if (e.preventDefault) e.preventDefault();
+        return { handled: true };
+      }
+      // Block repeated character inputs completely
+      if (e.preventDefault) e.preventDefault();
+      return { handled: true };
+    }
+
     if (e.key === 'Backspace' || e.code === 'Backspace') {
       if (e.preventDefault) e.preventDefault();
+      this.lastBackspaceTime = Date.now();
       this.handleBackspace('physical');
       return { handled: true };
     }
@@ -479,6 +500,23 @@ export class TypingInputController {
     if (e.key === 'Tab' || e.code === 'Tab') {
       if (e.preventDefault) e.preventDefault();
       return { handled: true };
+    }
+
+    // Modifier keys (Shift, Ctrl, Alt, CapsLock) pressed alone must not be typed as characters
+    if (
+      e.key === 'Shift' ||
+      e.code === 'ShiftLeft' ||
+      e.code === 'ShiftRight' ||
+      e.key === 'Control' ||
+      e.code === 'ControlLeft' ||
+      e.code === 'ControlRight' ||
+      e.key === 'Alt' ||
+      e.code === 'AltLeft' ||
+      e.code === 'AltRight' ||
+      e.key === 'CapsLock' ||
+      e.code === 'CapsLock'
+    ) {
+      return { handled: false };
     }
 
     // Determine Arabic character strictly from existing Arabic 101 keyboard layout
