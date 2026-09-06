@@ -26,12 +26,15 @@ export interface KeyboardKeyDef {
   isSpecial?: boolean;
 }
 
+export type SoundVolume = 'low' | 'medium' | 'high';
+
 export interface UserSettings {
   language: Language;
   theme: ThemeMode;
   keyboardLayout: 'arabic-101';
   typingMode: TypingMode;
   soundEnabled: boolean;
+  soundVolume: SoundVolume;
   keyPressSound: boolean;
   errorSound: boolean;
   completionSound: boolean;
@@ -65,6 +68,8 @@ export interface StreakData {
 export interface LessonProgress {
   lessonId: string;
   completed: boolean;
+  completedPages?: number; // count of completed pages (e.g. 8 out of 12)
+  currentPage?: number; // 1-based index of current page (e.g. page 9)
   bestWpm: number;
   bestAccuracy: number;
   stars: number; // 1 - 5
@@ -76,6 +81,61 @@ export interface TypingMistake {
   char: string;
   count: number;
   lastMistakeDate: string;
+}
+
+export interface ProblemKeyRecord {
+  char: string;
+  totalAttempts: number;
+  correctAttempts: number;
+  incorrectAttempts: number;
+  errorRate: number; // 0 to 1
+  accuracy: number; // 0 to 100
+  lastMistakeDate: string;
+  finger: FingerName;
+  status: 'needs-practice' | 'improving' | 'improved';
+  initialErrorRate?: number;
+  improvementPercent?: number;
+}
+
+export type ExamType =
+  | 'beginner'
+  | 'intermediate'
+  | 'final'
+  | 'beginner-exam'
+  | 'intermediate-exam'
+  | 'final-exam';
+
+export type TypingClassification =
+  | 'Novice'
+  | 'Intermediate'
+  | 'Advanced'
+  | 'Professional'
+  | 'Arabic Typing Expert';
+
+export interface ExamResult {
+  examId: ExamType;
+  examType?: ExamType;
+  titleAr: string;
+  titleEn: string;
+  titleBn: string;
+  passed: boolean;
+  wpm: number;
+  cpm: number;
+  accuracy: number;
+  totalChars?: number;
+  correctChars?: number;
+  incorrectChars?: number;
+  totalKeystrokes?: number;
+  correctCharacters?: number;
+  incorrectCharacters?: number;
+  errorCount: number;
+  date: string;
+  certificateId: string;
+  classification: TypingClassification;
+  durationSeconds: number;
+  timeSpentSeconds?: number;
+  consistency?: number;
+  studentName?: string;
 }
 
 export interface TypingSessionResult {
@@ -113,6 +173,32 @@ export interface Achievement {
 
 export type LessonDifficulty = 'beginner' | 'easy' | 'medium' | 'hard' | 'advanced';
 
+export type LessonPagePurpose =
+  | 'intro'
+  | 'position'
+  | 'single'
+  | 'second'
+  | 'alternating'
+  | 'repeated'
+  | 'combinations'
+  | 'mixed'
+  | 'words'
+  | 'accuracy'
+  | 'speed'
+  | 'test';
+
+export interface LessonPage {
+  pageNumber: number; // 1-based (e.g. 1 to 12)
+  titleAr: string;
+  titleEn: string;
+  titleBn: string;
+  instructionAr: string;
+  instructionEn: string;
+  instructionBn: string;
+  targetText: string;
+  purpose: LessonPagePurpose;
+}
+
 export interface Lesson {
   id: string;
   courseId: string;
@@ -127,6 +213,10 @@ export interface Lesson {
   difficulty: LessonDifficulty;
   targetText: string;
   focusKeys: string[];
+  newKeys?: [string, string] | string[]; // 2 newly introduced keys
+  previouslyLearnedKeys?: string[];
+  pages: LessonPage[];
+  totalPages: number;
   targetCharacters?: string[];
   estimatedSeconds: number;
 }

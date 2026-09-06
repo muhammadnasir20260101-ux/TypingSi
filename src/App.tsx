@@ -164,6 +164,7 @@ export default function App() {
             settings={settings}
             lessonProgress={lessonProgress}
             onStartLesson={handleStartLesson}
+            onUpdateSettings={handleUpdateSettings}
           />
         )}
 
@@ -174,6 +175,7 @@ export default function App() {
             onUpdateSettings={handleUpdateSettings}
             onSelectLesson={handleStartLesson}
             onGoToDashboard={() => setCurrentTab('dashboard')}
+            onBackToLessons={() => setCurrentTab('lessons')}
           />
         )}
 

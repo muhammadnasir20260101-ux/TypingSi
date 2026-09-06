@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle, Clock, RotateCcw, Target, Zap, Keyboard } from 'lucide-react';
 import { FontSize, Language, TypingMode } from '../types';
-import { mapPhysicalKeyToArabic101 } from '../data/keyboard101';
+import { mapPhysicalKeyToArabic101, isPhysicalKeyCode } from '../data/keyboard101';
 
 interface LessonTypingAreaProps {
   targetText: string;
@@ -57,10 +57,9 @@ export const LessonTypingArea: React.FC<LessonTypingAreaProps> = ({
   });
   const currentCharRef = useRef<HTMLSpanElement>(null);
 
-  // Buffer tracking for mobile virtual keyboard input without resetting input.value on every character
-  const lastValueRef = useRef<string>('');
+  // Guard to prevent synthetic input events right after physical keydown
+  const lastPhysicalKeyHandledTimeRef = useRef<number>(0);
   const lastBackspaceTimeRef = useRef<number>(0);
-  const lastHandledKeyTimeRef = useRef<number>(0);
 
   const activeIndex = currentIndex !== undefined ? currentIndex : typedText.length;
 
@@ -125,7 +124,6 @@ export const LessonTypingArea: React.FC<LessonTypingAreaProps> = ({
       inputRef.current.value = '';
       inputRef.current.focus();
     }
-    lastValueRef.current = '';
     setIsFocused(true);
   }, [targetText]);
 
@@ -148,41 +146,29 @@ export const LessonTypingArea: React.FC<LessonTypingAreaProps> = ({
   };
 
   /**
-   * Handle physical keydown events.
-   * Android/iOS virtual keyboards emit 'Unidentified' or keyCode 229, which we bypass
-   * so the browser's input/beforeinput events can capture the actual typed character.
+   * Physical Keyboard Handler:
+   * Converts the physical key according to the existing Arabic 101 mapping
+   * and sends the resulting Arabic character to onKeyPress -> processCharacterInput.
    */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (isFinished) return;
 
-    // Detect virtual keyboard IME composition state on Android/mobile
-    const isVirtualIme = e.key === 'Unidentified' || e.keyCode === 229 || e.nativeEvent.isComposing;
-    if (isVirtualIme) {
-      // Let onInput/onBeforeInput receive mobile virtual keyboard character!
+    // Allow standard browser shortcut combos (Ctrl+R, Cmd+C, etc.)
+    if (e.ctrlKey || e.metaKey || e.altKey) {
       return;
     }
 
-    // Valid physical key detected on hardware keyboard (OTG/USB/Bluetooth)
-    if (!isPhysicalKeyboardConnected) {
-      setIsPhysicalKeyboardConnected(true);
-      try {
-        localStorage.setItem('tibaa_physical_keyboard_connected', 'true');
-      } catch {
-        // ignore
-      }
+    const isPhysical = isPhysicalKeyCode(e.code);
+
+    // If NOT a physical key code and it's a mobile virtual keyboard IME composition event (Unidentified / 229),
+    // let handleInput capture the touchscreen Arabic text.
+    if (!isPhysical && (e.key === 'Unidentified' || e.keyCode === 229)) {
+      return;
     }
 
-    // Mark physical key timestamp to prevent any synthetic input/beforeinput event from processing
-    lastHandledKeyTimeRef.current = Date.now();
-
-    // Auto-repeat protection (Rule 5):
-    // ONE physical press = ONE typing action.
-    // If user holds a key down, it must NOT suddenly produce 5–6 characters!
+    // Auto-repeat protection: ONE physical key press = ONE typing action
     if (e.repeat) {
       e.preventDefault();
-      if (inputRef.current) inputRef.current.value = '';
-      lastValueRef.current = '';
-
       if (e.key === 'Backspace' || e.code === 'Backspace') {
         const now = Date.now();
         if (now - lastBackspaceTimeRef.current >= 120) {
@@ -198,16 +184,17 @@ export const LessonTypingArea: React.FC<LessonTypingAreaProps> = ({
       return;
     }
 
+    // Physical Backspace
     if (e.key === 'Backspace' || e.code === 'Backspace') {
       e.preventDefault();
+      lastPhysicalKeyHandledTimeRef.current = Date.now();
       if (inputRef.current) inputRef.current.value = '';
-      lastValueRef.current = '';
       lastBackspaceTimeRef.current = Date.now();
       onBackspace();
       return;
     }
 
-    // Modifier keys (Shift, Ctrl, Alt, CapsLock) pressed alone: ignore and do not process as character
+    // Modifier keys (Shift, Ctrl, Alt, CapsLock) pressed alone: ignore
     if (
       e.key === 'Shift' ||
       e.code === 'ShiftLeft' ||
@@ -224,140 +211,90 @@ export const LessonTypingArea: React.FC<LessonTypingAreaProps> = ({
       return;
     }
 
-    // Prevent default immediately for physical character keys so browser doesn't try to insert English text
-    e.preventDefault();
-
-    // Clear input field immediately so Android Chrome can NEVER buffer characters
-    if (inputRef.current) {
-      inputRef.current.value = '';
-    }
-    lastValueRef.current = '';
-
-    // Pass to custom physical key handler if provided
-    if (onPhysicalKeyDown) {
-      onPhysicalKeyDown(e);
-      return;
-    }
-
-    // Default physical key capture: map physical key strictly to Arabic 101 character
-    const mappedChar = mapPhysicalKeyToArabic101(e.code, e.key, e.shiftKey);
-    if (mappedChar) {
-      onKeyPress(mappedChar);
-      return;
-    }
-
-    // Direct single Arabic character or Space check
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]/.test(e.key)) {
-        onKeyPress(e.key);
-        return;
+    // Convert physical key using existing Arabic 101 mapping
+    let char = mapPhysicalKeyToArabic101(e.code, e.key, e.shiftKey);
+    if (!char) {
+      // Fallback if OS is already Arabic or spacebar
+      if (e.key === ' ' || (e.key.length === 1 && /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(e.key))) {
+        char = e.key;
       }
+    }
+
+    if (char) {
+      e.preventDefault();
+      lastPhysicalKeyHandledTimeRef.current = Date.now();
+      if (inputRef.current) inputRef.current.value = '';
+      if (!isPhysicalKeyboardConnected) {
+        setIsPhysicalKeyboardConnected(true);
+        try {
+          localStorage.setItem('tibaa_physical_keyboard_connected', 'true');
+        } catch {
+          // ignore
+        }
+      }
+      onKeyPress(char);
+      return;
     }
   };
 
   /**
-   * Primary virtual keyboard input handler (strictly for Android Chrome Gboard, Samsung Keyboard, iOS touchscreen IME)
-   * Must NEVER process physical keyboard keystrokes or translate English letters into Arabic.
+   * Browser Input Handler (for ANY software / touchscreen keyboard):
+   * Detects the actual Arabic character received by the browser and sends it to onKeyPress -> processCharacterInput.
    */
   const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
     if (isFinished) return;
-    const inputElem = inputRef.current;
-    if (!inputElem) return;
 
-    // Deduplicate: If this input event was synthesized by Android after a physical keydown, ignore it completely!
-    if (Date.now() - lastHandledKeyTimeRef.current < 600) {
-      inputElem.value = '';
-      lastValueRef.current = '';
+    // Discard synthetic event if this physical key was already processed
+    if (Date.now() - lastPhysicalKeyHandledTimeRef.current < 350) {
+      if (inputRef.current) inputRef.current.value = '';
       return;
     }
 
     const nativeEvent = e.nativeEvent as InputEvent;
-    const currentVal = inputElem.value;
-    const prevVal = lastValueRef.current;
+    const inputElem = inputRef.current;
+    const currentVal = inputElem ? inputElem.value : '';
 
-    // 1. Backspace / Deletion detected from touchscreen virtual keyboard
-    if (nativeEvent?.inputType === 'deleteContentBackward' || currentVal.length < prevVal.length) {
-      inputElem.value = '';
-      lastValueRef.current = '';
-      if (Date.now() - lastBackspaceTimeRef.current > 100) {
-        lastBackspaceTimeRef.current = Date.now();
+    // Virtual keyboard Backspace
+    if (nativeEvent?.inputType === 'deleteContentBackward') {
+      if (inputElem) inputElem.value = '';
+      const now = Date.now();
+      if (now - lastBackspaceTimeRef.current >= 80) {
+        lastBackspaceTimeRef.current = now;
         onBackspace();
       }
       return;
     }
 
-    // 2. Discard any English/Latin characters - touchscreen Arabic keyboards NEVER produce Latin characters!
-    // Any Latin characters in the input field can only be artifacts from a physical keyboard.
-    if (/[a-zA-Z]/.test(currentVal) || (nativeEvent?.data && /[a-zA-Z]/.test(nativeEvent.data))) {
-      inputElem.value = '';
-      lastValueRef.current = '';
-      return;
-    }
+    // Extract actual received characters from browser
+    const text = nativeEvent?.data || currentVal;
+    if (inputElem) inputElem.value = '';
 
-    // 3. Extract genuine Arabic characters from mobile virtual keyboard
-    let newlyAdded = '';
-    if (nativeEvent?.data) {
-      newlyAdded = nativeEvent.data;
-    } else if (currentVal.length > prevVal.length) {
-      newlyAdded = currentVal.slice(prevVal.length);
-    } else if (currentVal !== prevVal) {
-      newlyAdded = currentVal;
-    } else if (currentVal.length > 0) {
-      newlyAdded = currentVal;
-    }
-
-    if (newlyAdded) {
-      // Only keep Arabic characters and space from touchscreen keyboard
-      const arabicChars = Array.from(newlyAdded).filter((c) =>
-        /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]/.test(c)
-      );
-
-      if (arabicChars.length > 0) {
-        const textToProcess = arabicChars.join('');
-        if (onVirtualInput) {
-          onVirtualInput(textToProcess);
-        } else {
-          for (const char of arabicChars) {
-            onKeyPress(char);
-          }
-        }
+    if (text) {
+      for (const char of Array.from(text)) {
+        if (char === '\n' || char === '\r') continue;
+        onKeyPress(char);
       }
     }
-
-    // Always clear input element and buffer tracker
-    inputElem.value = '';
-    lastValueRef.current = '';
   };
 
   /**
-   * Support beforeinput: intercept and discard any synthetic events caused by physical keys,
-   * while allowing mobile virtual keyboard backspaces.
+   * BeforeInput handler for virtual keyboard backspace support
    */
   const handleBeforeInput = (e: React.FormEvent<HTMLInputElement>) => {
     if (isFinished) return;
-
-    // Discard any synthetic event generated by physical keyboard within 600ms
-    if (Date.now() - lastHandledKeyTimeRef.current < 600) {
+    if (Date.now() - lastPhysicalKeyHandledTimeRef.current < 350) {
       e.preventDefault();
       if (inputRef.current) inputRef.current.value = '';
-      lastValueRef.current = '';
       return;
     }
 
     const nativeEvent = e.nativeEvent as InputEvent;
-    if (!nativeEvent) return;
-
-    // Discard any English/Latin characters synthesized from physical keyboard
-    if (nativeEvent.data && /[a-zA-Z]/.test(nativeEvent.data)) {
+    if (nativeEvent?.inputType === 'deleteContentBackward') {
       e.preventDefault();
       if (inputRef.current) inputRef.current.value = '';
-      lastValueRef.current = '';
-      return;
-    }
-
-    if (nativeEvent.inputType === 'deleteContentBackward') {
-      if (Date.now() - lastBackspaceTimeRef.current > 100) {
-        lastBackspaceTimeRef.current = Date.now();
+      const now = Date.now();
+      if (now - lastBackspaceTimeRef.current >= 80) {
+        lastBackspaceTimeRef.current = now;
         onBackspace();
       }
     }
@@ -439,10 +376,10 @@ export const LessonTypingArea: React.FC<LessonTypingAreaProps> = ({
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>
                 {lang === 'bn'
-                  ? '🟢 ফিজিক্যাল কিবোর্ড সংযুক্ত'
+                  ? 'ফিজিক্যাল কিবোর্ড সংযুক্ত'
                   : lang === 'en'
-                  ? '🟢 Physical Keyboard Connected'
-                  : '🟢 لوحة مفاتيح حقيقية متصلة'}
+                  ? 'Physical Keyboard Connected'
+                  : 'لوحة مفاتيح حقيقية متصلة'}
               </span>
             </span>
           ) : (
@@ -490,7 +427,6 @@ export const LessonTypingArea: React.FC<LessonTypingAreaProps> = ({
                 inputRef.current.value = '';
                 inputRef.current.focus();
               }
-              lastValueRef.current = '';
               setIsFocused(true);
             }}
             className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"

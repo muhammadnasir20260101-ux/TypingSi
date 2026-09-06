@@ -31,6 +31,7 @@ import {
 } from '../types';
 import { COURSES, ALL_LESSONS } from '../data/courses';
 import { getTranslation } from '../data/translations';
+import { LearningTreeCard } from '../components/LearningTreeCard';
 
 interface DashboardPageProps {
   settings: UserSettings;
@@ -249,6 +250,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               : 'اليوم'}
           </span>
         </div>
+      </section>
+
+      {/* Interactive Arabic Learning Tree Card */}
+      <section id="dashboard-learning-tree-section">
+        <LearningTreeCard
+          lang={settings.language}
+          onContinueLearning={() => onStartLesson(currentLesson.id)}
+        />
       </section>
 
       {/* 3. Continue Learning Banner & Weak Keys Alert */}

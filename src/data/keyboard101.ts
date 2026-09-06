@@ -317,6 +317,24 @@ const PHYSICAL_SYMBOL_MAP: Record<string, { unshifted: string; shifted?: string 
 };
 
 /**
+ * Checks if a KeyboardEvent code represents a valid physical key on a hardware keyboard.
+ * Mobile touchscreen virtual keyboards do not have physical keys and emit empty code or 'Unidentified'.
+ */
+export function isPhysicalKeyCode(code?: string): boolean {
+  if (!code || code === 'Unidentified') return false;
+  return (
+    code.startsWith('Key') ||
+    code.startsWith('Digit') ||
+    code.startsWith('Numpad') ||
+    code === 'Space' ||
+    code === 'Backspace' ||
+    code === 'Tab' ||
+    code === 'Enter' ||
+    CODE_TO_KEY_MAP.has(code)
+  );
+}
+
+/**
  * Maps a physical keyboard event (e.code, e.key, shiftKey) directly to the
  * corresponding Arabic 101 character from the application's existing KEYBOARD_ROWS.
  * 

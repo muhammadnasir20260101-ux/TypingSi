@@ -3,6 +3,7 @@ import { Award, Check, Download, Edit3, Flame, GraduationCap, RotateCcw, Sparkle
 import { StorageService } from '../services/storageService';
 import { DailyGoalProgress, StreakData, UserProfile, UserSettings } from '../types';
 import { getTranslation } from '../data/translations';
+import { LearningTreeCard } from '../components/LearningTreeCard';
 
 interface ProfilePageProps {
   profile: UserProfile;
@@ -193,6 +194,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
         )}
       </div>
+
+      {/* Learning Tree Growth Card */}
+      <LearningTreeCard lang={settings.language} />
 
       {/* Backup, Export & Import Section */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">

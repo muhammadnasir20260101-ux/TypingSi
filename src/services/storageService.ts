@@ -1,7 +1,10 @@
 import { 
   Achievement, 
   DailyGoalProgress, 
+  ExamResult,
+  FingerName,
   LessonProgress, 
+  ProblemKeyRecord,
   StreakData, 
   TypingMistake, 
   TypingSessionResult, 
@@ -9,6 +12,7 @@ import {
   UserSettings 
 } from '../types';
 import { INITIAL_ACHIEVEMENTS } from '../data/achievements';
+import { findKeyForChar } from '../data/keyboard101';
 
 const KEYS = {
   SETTINGS: 'tibaa_user_settings_v1',
@@ -16,6 +20,8 @@ const KEYS = {
   LESSONS: 'tibaa_lesson_progress_v1',
   SESSIONS: 'tibaa_typing_sessions_v1',
   MISTAKES: 'tibaa_typing_mistakes_v1',
+  KEY_STATS: 'tibaa_key_stats_v1',
+  EXAMS: 'tibaa_exams_v1',
   DAILY_GOAL: 'tibaa_daily_goal_v1',
   STREAK: 'tibaa_streak_data_v1',
   ACHIEVEMENTS: 'tibaa_achievements_v1',
@@ -29,6 +35,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   keyboardLayout: 'arabic-101',
   typingMode: 'normal',
   soundEnabled: true,
+  soundVolume: 'medium',
   keyPressSound: true,
   errorSound: true,
   completionSound: true,
@@ -168,6 +175,8 @@ export class StorageService {
     const progress: LessonProgress = {
       lessonId,
       completed: true,
+      completedPages: existing?.completedPages || 12,
+      currentPage: existing?.currentPage || 12,
       bestWpm: existing ? Math.max(existing.bestWpm, wpm) : wpm,
       bestAccuracy: existing ? Math.max(existing.bestAccuracy, accuracy) : accuracy,
       stars: existing ? Math.max(existing.stars, stars) : stars,
@@ -191,6 +200,119 @@ export class StorageService {
     }
 
     return map;
+  }
+
+  static saveLessonPageProgress(
+    lessonId: string,
+    completedPage: number,
+    totalPages: number,
+    pageWpm: number = 0,
+    pageAccuracy: number = 100
+  ): LessonProgress {
+    const map = this.getLessonProgressMap();
+    const existing = map[lessonId];
+    const today = getTodayString();
+    const prevCompleted = existing?.completedPages || 0;
+    const newCompleted = Math.max(prevCompleted, completedPage);
+    const isFullyCompleted = newCompleted >= totalPages;
+    const nextPage = Math.min(totalPages, completedPage + 1);
+
+    const progress: LessonProgress = {
+      lessonId,
+      completed: isFullyCompleted || Boolean(existing?.completed),
+      completedPages: newCompleted,
+      currentPage: isFullyCompleted ? totalPages : nextPage,
+      bestWpm: existing ? Math.max(existing.bestWpm, pageWpm) : pageWpm,
+      bestAccuracy: existing ? Math.max(existing.bestAccuracy, pageAccuracy) : pageAccuracy,
+      stars: existing ? existing.stars : 0,
+      attempts: existing ? existing.attempts + 1 : 1,
+      lastAttemptDate: today,
+    };
+
+    if (isFullyCompleted) {
+      const bestAcc = progress.bestAccuracy;
+      let stars = 1;
+      if (bestAcc >= 98) stars = 5;
+      else if (bestAcc >= 95) stars = 4;
+      else if (bestAcc >= 90) stars = 3;
+      else if (bestAcc >= 85) stars = 2;
+      progress.stars = Math.max(progress.stars, stars);
+    }
+
+    map[lessonId] = progress;
+    try {
+      localStorage.setItem(KEYS.LESSONS, JSON.stringify(map));
+    } catch {
+      // ignore
+    }
+
+    const completedCount = Object.values(map).filter(p => p.completed).length;
+    const currentProfile = this.getProfile();
+    const newLevel = Math.max(1, Math.min(12, Math.floor(completedCount / 3) + 1));
+    if (newLevel !== currentProfile.level) {
+      this.saveProfile({ ...currentProfile, level: newLevel });
+    }
+
+    return progress;
+  }
+
+  static isLessonUnlocked(_lessonId: string, _allLessonIds?: string[]): boolean {
+    // All lessons unlocked as requested
+    return true;
+  }
+
+  static getLearningTreeStats(totalLessons: number = 31, totalPages: number = 372) {
+    const map = this.getLessonProgressMap();
+    let completedLessons = 0;
+    let completedPages = 0;
+
+    for (const prog of Object.values(map)) {
+      if (prog.completed) {
+        completedLessons++;
+      }
+      completedPages += prog.completedPages || (prog.completed ? 12 : 0);
+    }
+
+    const pagesPercent = totalPages > 0 ? (completedPages / totalPages) * 100 : 0;
+    const lessonsPercent = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+    const overallPercent = Math.min(100, Math.round(pagesPercent * 0.7 + lessonsPercent * 0.3));
+
+    let stage = 1;
+    let fruitsCount = 0;
+
+    if (overallPercent >= 90) {
+      stage = 7;
+      fruitsCount = 7;
+    } else if (overallPercent >= 75) {
+      stage = 6;
+      fruitsCount = 5;
+    } else if (overallPercent >= 60) {
+      stage = 5;
+      fruitsCount = 3;
+    } else if (overallPercent >= 45) {
+      stage = 4;
+      fruitsCount = 2;
+    } else if (overallPercent >= 30) {
+      stage = 3;
+      fruitsCount = 1;
+    } else if (overallPercent >= 15) {
+      stage = 2;
+      fruitsCount = 0;
+    } else {
+      stage = 1;
+      fruitsCount = 0;
+    }
+
+    return {
+      stage,
+      overallPercent,
+      completedLessons,
+      totalLessons,
+      completedPages,
+      totalPages,
+      fruitsCount,
+      maxFruits: 7,
+    };
   }
 
   // Sessions History
@@ -256,6 +378,153 @@ export class StorageService {
       // ignore
     }
     return map;
+  }
+
+  // --- ADAPTIVE PROBLEM KEYS SYSTEM ---
+  static getKeyStatsMap(): Record<string, { total: number; errors: number; lastDate: string; improved?: boolean }> {
+    try {
+      const data = localStorage.getItem(KEYS.KEY_STATS);
+      if (data) {
+        return JSON.parse(data);
+      }
+    } catch {
+      // fallback
+    }
+    return {};
+  }
+
+  static recordKeyAttempts(correctMap: Record<string, number>, errorMap: Record<string, number>): void {
+    const stats = this.getKeyStatsMap();
+    const today = getTodayString();
+
+    for (const [char, count] of Object.entries(correctMap)) {
+      if (!char || char === ' ' || count <= 0) continue;
+      if (!stats[char]) {
+        stats[char] = { total: 0, errors: 0, lastDate: today };
+      }
+      stats[char].total += count;
+      stats[char].lastDate = today;
+    }
+
+    for (const [char, count] of Object.entries(errorMap)) {
+      if (!char || char === ' ' || count <= 0) continue;
+      if (!stats[char]) {
+        stats[char] = { total: 0, errors: 0, lastDate: today };
+      }
+      stats[char].total += count;
+      stats[char].errors += count;
+      stats[char].lastDate = today;
+      // If error occurred, reset improved status
+      stats[char].improved = false;
+    }
+
+    try {
+      localStorage.setItem(KEYS.KEY_STATS, JSON.stringify(stats));
+    } catch {
+      // ignore
+    }
+  }
+
+  static getProblemKeys(): ProblemKeyRecord[] {
+    const stats = this.getKeyStatsMap();
+    const mistakes = this.getMistakesMap();
+    const records: ProblemKeyRecord[] = [];
+
+    // Gather all known chars from both stats and mistakes
+    const allChars = new Set<string>([...Object.keys(stats), ...Object.keys(mistakes)]);
+
+    for (const char of allChars) {
+      if (!char || char === ' ') continue;
+      const stat = stats[char];
+      const mistake = mistakes[char];
+
+      const incorrectAttempts = stat ? stat.errors : (mistake?.count || 0);
+      const totalAttempts = stat ? Math.max(stat.total, incorrectAttempts) : Math.max(incorrectAttempts * 2, 4);
+      const correctAttempts = Math.max(0, totalAttempts - incorrectAttempts);
+
+      if (incorrectAttempts <= 0) continue;
+
+      const errorRate = totalAttempts > 0 ? incorrectAttempts / totalAttempts : 1;
+      const accuracy = Math.round(Math.max(0, 100 - errorRate * 100));
+
+      // Key match for finger
+      const match = findKeyForChar(char);
+      const finger: FingerName = match?.keyDef.finger || 'right-index';
+
+      // Status determination
+      let status: 'needs-practice' | 'improving' | 'improved' = 'needs-practice';
+      if (stat?.improved) {
+        status = 'improved';
+      } else if (accuracy >= 80) {
+        status = 'improving';
+      }
+
+      records.push({
+        char,
+        totalAttempts,
+        correctAttempts,
+        incorrectAttempts,
+        errorRate,
+        accuracy,
+        lastMistakeDate: stat?.lastDate || mistake?.lastMistakeDate || getTodayString(),
+        finger,
+        status,
+        improvementPercent: status === 'improved' ? 85 : accuracy > 60 ? 40 : 10,
+      });
+    }
+
+    // Sort: needs-practice first, then by error count descending
+    return records.sort((a, b) => {
+      if (a.status === 'needs-practice' && b.status !== 'needs-practice') return -1;
+      if (b.status === 'needs-practice' && a.status !== 'needs-practice') return 1;
+      return b.incorrectAttempts - a.incorrectAttempts;
+    });
+  }
+
+  static markProblemKeyPracticed(char: string, sessionAccuracy: number): void {
+    const stats = this.getKeyStatsMap();
+    if (!stats[char]) {
+      stats[char] = { total: 20, errors: 0, lastDate: getTodayString() };
+    }
+    stats[char].total += 15;
+    if (sessionAccuracy >= 88) {
+      // Mark as improved!
+      stats[char].improved = true;
+      stats[char].errors = Math.max(0, stats[char].errors - 3);
+    }
+    try {
+      localStorage.setItem(KEYS.KEY_STATS, JSON.stringify(stats));
+    } catch {
+      // ignore
+    }
+  }
+
+  // --- EXAM RESULTS & CERTIFICATES ---
+  static getExamResults(): Record<string, ExamResult> {
+    try {
+      const data = localStorage.getItem(KEYS.EXAMS);
+      if (data) {
+        return JSON.parse(data);
+      }
+    } catch {
+      // fallback
+    }
+    return {};
+  }
+
+  static saveExamResult(result: ExamResult): void {
+    const exams = this.getExamResults();
+    exams[result.examId] = result;
+    try {
+      localStorage.setItem(KEYS.EXAMS, JSON.stringify(exams));
+    } catch {
+      // ignore
+    }
+  }
+
+  static isLevelUnlocked(_level: 'beginner' | 'intermediate' | 'advanced', _allLessonIds?: string[]): boolean {
+    // All levels unlocked as requested
+    return true;
   }
 
   // Daily Goal

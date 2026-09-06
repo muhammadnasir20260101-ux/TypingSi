@@ -13,7 +13,8 @@ import {
   Volume2,
 } from 'lucide-react';
 import { StorageService } from '../services/storageService';
-import { FontSize, Language, ThemeMode, TypingMode, UserSettings } from '../types';
+import { soundService } from '../services/soundService';
+import { FontSize, Language, SoundVolume, ThemeMode, TypingMode, UserSettings } from '../types';
 import { getTranslation } from '../data/translations';
 
 interface SettingsPageProps {
@@ -110,13 +111,23 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 key={mode}
                 type="button"
                 onClick={() => onUpdateSettings({ theme: mode })}
-                className={`py-1.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                className={`py-1.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 ${
                   settings.theme === mode
                     ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xs'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                 }`}
               >
-                {mode === 'light' ? `${t('themeLight')} ☀️` : `${t('themeDark')} 🌙`}
+                {mode === 'light' ? (
+                  <>
+                    <span>{t('themeLight')}</span>
+                    <Sun className="w-3.5 h-3.5" />
+                  </>
+                ) : (
+                  <>
+                    <span>{t('themeDark')}</span>
+                    <Moon className="w-3.5 h-3.5" />
+                  </>
+                )}
               </button>
             ))}
           </div>
@@ -209,37 +220,70 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           </div>
 
           {settings.soundEnabled && (
-            <div className="ltr:ml-12 rtl:mr-12 pt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-              <label className="flex items-center gap-2 text-slate-600 dark:text-slate-400 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.keyPressSound}
-                  onChange={(e) => onUpdateSettings({ keyPressSound: e.target.checked })}
-                  className="rounded text-emerald-600 focus:ring-emerald-500"
-                />
-                <span>{t('soundKeyPress')}</span>
-              </label>
+            <>
+              <div className="ltr:ml-12 rtl:mr-12 pt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <label className="flex items-center gap-2 text-slate-600 dark:text-slate-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.keyPressSound}
+                    onChange={(e) => onUpdateSettings({ keyPressSound: e.target.checked })}
+                    className="rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>{t('soundKeyPress')}</span>
+                </label>
 
-              <label className="flex items-center gap-2 text-slate-600 dark:text-slate-400 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.errorSound}
-                  onChange={(e) => onUpdateSettings({ errorSound: e.target.checked })}
-                  className="rounded text-emerald-600 focus:ring-emerald-500"
-                />
-                <span>{t('soundError')}</span>
-              </label>
+                <label className="flex items-center gap-2 text-slate-600 dark:text-slate-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.errorSound}
+                    onChange={(e) => onUpdateSettings({ errorSound: e.target.checked })}
+                    className="rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>{t('soundError')}</span>
+                </label>
 
-              <label className="flex items-center gap-2 text-slate-600 dark:text-slate-400 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.completionSound}
-                  onChange={(e) => onUpdateSettings({ completionSound: e.target.checked })}
-                  className="rounded text-emerald-600 focus:ring-emerald-500"
-                />
-                <span>{t('soundCompletion')}</span>
-              </label>
-            </div>
+                <label className="flex items-center gap-2 text-slate-600 dark:text-slate-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.completionSound}
+                    onChange={(e) => onUpdateSettings({ completionSound: e.target.checked })}
+                    className="rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>{t('soundCompletion')}</span>
+                </label>
+              </div>
+
+              {/* Sound Volume Selection */}
+              <div className="ltr:ml-12 rtl:mr-12 pt-3 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  {settings.language === 'ar' ? 'مستوى الصوت:' : settings.language === 'bn' ? 'শব্দের মাত্রা:' : 'Volume:'}
+                </span>
+                <div className="flex gap-1.5">
+                  {(['low', 'medium', 'high'] as SoundVolume[]).map((vol) => (
+                    <button
+                      key={vol}
+                      type="button"
+                      onClick={() => {
+                        onUpdateSettings({ soundVolume: vol });
+                        soundService.setVolume(vol);
+                        soundService.playKeyBeep(true);
+                      }}
+                      className={`py-1 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        (settings.soundVolume || 'medium') === vol
+                          ? 'bg-amber-500 text-white shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                      }`}
+                    >
+                      {vol === 'low'
+                        ? (settings.language === 'ar' ? 'منخفض' : settings.language === 'bn' ? 'কম' : 'Low')
+                        : vol === 'medium'
+                        ? (settings.language === 'ar' ? 'متوسط' : settings.language === 'bn' ? 'মাঝারি' : 'Medium')
+                        : (settings.language === 'ar' ? 'مرتفع' : settings.language === 'bn' ? 'উচ্চ' : 'High')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
         </div>
 

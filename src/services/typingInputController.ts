@@ -1,5 +1,5 @@
 import { TypingMode } from '../types';
-import { KEYBOARD_ROWS, mapPhysicalKeyToArabic101 } from '../data/keyboard101';
+import { KEYBOARD_ROWS, mapPhysicalKeyToArabic101, isPhysicalKeyCode } from '../data/keyboard101';
 
 export type CharStatus = 'pending' | 'current' | 'correct' | 'incorrect';
 
@@ -392,20 +392,9 @@ export class TypingInputController {
     str: string,
     source: 'virtual' | 'physical' = 'virtual'
   ): ProcessInputResult[] {
-    // If incoming string has English characters (e.g. Android OTG input event synthesizing keycap letter like 'f'),
-    // translate each letter to its Arabic 101 character so 'f' strictly becomes 'ب'
-    let sanitized = '';
-    for (let i = 0; i < str.length; i++) {
-      const ch = str[i];
-      if (/[a-zA-Z]/.test(ch)) {
-        const mapped = mapPhysicalKeyToArabic101(undefined, ch, ch >= 'A' && ch <= 'Z');
-        sanitized += mapped || ch;
-      } else {
-        sanitized += ch;
-      }
-    }
+    if (!str || this.isFinished) return [];
 
-    const chars = segmentArabicText(sanitized);
+    const chars = segmentArabicText(str);
     const results: ProcessInputResult[] = [];
     for (const char of chars) {
       if (this.isFinished) break;
@@ -467,8 +456,9 @@ export class TypingInputController {
     if (this.isFinished) return { handled: false };
     if (e.ctrlKey || e.metaKey || e.altKey) return { handled: false };
 
-    // Ignore mobile composition/unidentified keys in keydown
-    if (e.key === 'Unidentified' || e.key === 'Dead') {
+    // Ignore mobile composition/unidentified keys ONLY if not a physical key code
+    const hasPhysicalCode = Boolean(e.code && isPhysicalKeyCode(e.code));
+    if (!hasPhysicalCode && (e.key === 'Unidentified' || e.key === 'Dead')) {
       return { handled: false };
     }
 

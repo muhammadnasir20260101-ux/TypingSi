@@ -49,6 +49,7 @@ export function useTypingEngine({
 
   // Create Controller instance
   const controllerRef = useRef<TypingInputController | null>(null);
+  const [wrongChar, setWrongChar] = useState<string | null>(null);
 
   // Synchronized React state representing the controller state
   const [stats, setStats] = useState<TypingEngineStats>(() => {
@@ -62,11 +63,15 @@ export function useTypingEngine({
         }
       },
       onCharacterAccepted: (res) => {
+        if (res.isMatch) {
+          setWrongChar(null);
+        }
         if (res.isMatch && soundSettingsRef.current.soundEnabled && soundSettingsRef.current.keyPressSound) {
           soundService.playKeyClick();
         }
       },
-      onError: () => {
+      onError: (_expected, actual) => {
+        setWrongChar(actual || null);
         if (soundSettingsRef.current.soundEnabled && soundSettingsRef.current.errorSound) {
           soundService.playError();
         }
@@ -130,11 +135,15 @@ export function useTypingEngine({
         }
       },
       onCharacterAccepted: (res) => {
+        if (res.isMatch) {
+          setWrongChar(null);
+        }
         if (res.isMatch && soundSettingsRef.current.soundEnabled && soundSettingsRef.current.keyPressSound) {
           soundService.playKeyClick();
         }
       },
-      onError: () => {
+      onError: (_expected, actual) => {
+        setWrongChar(actual || null);
         if (soundSettingsRef.current.soundEnabled && soundSettingsRef.current.errorSound) {
           soundService.playError();
         }
@@ -143,6 +152,7 @@ export function useTypingEngine({
 
     controllerRef.current = controller;
     setStats(controller.getStats());
+    setWrongChar(null);
 
     return () => {
       if (timerIntervalRef.current) {
@@ -167,6 +177,7 @@ export function useTypingEngine({
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
+    setWrongChar(null);
     if (controllerRef.current) {
       controllerRef.current.reset(targetText, typingMode);
       setStats(controllerRef.current.getStats());
@@ -281,6 +292,7 @@ export function useTypingEngine({
     accuracy: stats.accuracy,
     progressPercent: stats.progressPercent,
     mistakeChars: stats.mistakeChars,
+    wrongChar,
     handleKeyPress,
     handlePhysicalKeyDown,
     handleVirtualInput,
