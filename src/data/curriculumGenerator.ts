@@ -1,4 +1,9 @@
 import { Course, Lesson, LessonDifficulty, LessonPage, LessonPagePurpose } from '../types';
+import {
+  ALL_ARABIC_BASE_LETTERS,
+  computeLessonKeyRules,
+  sanitizeLessonText,
+} from './lessonValidator';
 
 interface LessonVocab {
   shortWords: string[];
@@ -7,157 +12,193 @@ interface LessonVocab {
   sentences: string[];
 }
 
-// Rich vocabulary mapping for each 2-key pair in Arabic
+/**
+ * Single source of truth for beginner lesson vocabulary.
+ * Every single word, phrase, and sentence is strictly composed ONLY of
+ * the keys unlocked up to that lesson (allowedKeys) and space.
+ * No Harakat, no English, no numbers, no punctuation, no unlearned letters.
+ */
 const LETTER_VOCABULARY: Record<string, LessonVocab> = {
+  // Lesson 1: ['ب', 'ت']
   'ب_ت': {
-    shortWords: ['بت', 'تب', 'بنت', 'بيت', 'نبت', 'توت', 'ثبت', 'تائب', 'تبت', 'بنات'],
-    longerWords: ['تثبت', 'استتباب', 'ثوابت', 'نباتات', 'بيوتنا', 'مكتبات', 'ثابتون'],
-    phrases: ['ثبات وعزيمة', 'بيت طيب', 'نبات جميل', 'بنات اليوم', 'تثبت في الأمر'],
+    shortWords: ['بت', 'تب', 'ببت', 'تبت', 'بتب', 'تبب', 'بتت', 'تتب'],
+    longerWords: ['بتبت', 'تبتب', 'ببتت', 'تتبب', 'بتببت', 'تبتبت', 'بتتبت'],
+    phrases: ['بت تب بت تب', 'تبت ببت تبت ببت', 'بتب تببت بتب تببت', 'بت تبت تب ببت'],
     sentences: [
-      'تثبت من الخبر يا بني وتسلح بالصبر والإرادة.',
-      'البيت عامر بالخير والبركة دائما بفضل العمل المخلص.',
+      'بت تبت تب ببت بت تب تبت ببت بتب بتت',
+      'تبتب بتبت بت تب تبت ببت بتب تببت تتب',
     ],
   },
+
+  // Lesson 2: ['ي', 'ل'] + ['ب', 'ت']
   'ي_ل': {
-    shortWords: ['يل', 'لي', 'ليل', 'بيت', 'تين', 'لين', 'تيل', 'يلين', 'يتلو', 'ليت'],
-    longerWords: ['التالي', 'الليالي', 'السبيل', 'اليقين', 'البلاغ', 'التبجيل', 'التسليم'],
-    phrases: ['الليل ساكن', 'سبيل النجاة', 'علم نافع', 'نور اليقين', 'قول بليغ'],
+    shortWords: ['يل', 'لي', 'ليل', 'بيت', 'ليت', 'يلبي', 'بيتي', 'تلي', 'بلي', 'تل', 'بل', 'لب'],
+    longerWords: ['بلبل', 'ليلتي', 'بيتي', 'يلبي', 'تبيت', 'يبيت', 'ليلي', 'تبتل'],
+    phrases: ['بيت ليل', 'بيتي يبيت', 'ليت بلبل يلبي', 'ليل بيتي', 'تلي ليلتي'],
     sentences: [
-      'الليل ينجلي بنور الفجر المشرق والسبيل واضح للمتعلم.',
-      'العلم ينير العقول ويبني الأجيال على أسس راسخة.',
+      'ليت بلبل يلبي بيتي ليلتي يبيت ليلي بت تب',
+      'بيتي ليلتي تبيت يلبي بلبل ليت ليل تبت',
     ],
   },
+
+  // Lesson 3: ['ا', 'ن'] + ['ب', 'ت', 'ي', 'ل']
   'ا_ن': {
-    shortWords: ['ان', 'نا', 'انا', 'نال', 'بان', 'ناب', 'نبات', 'نور', 'نجم', 'نام'],
-    longerWords: ['الإنسان', 'الأمانة', 'الإيمان', 'البيان', 'النبراس', 'التبيان', 'الإتقان'],
-    phrases: ['أمانة العلم', 'نور البيان', 'طريق النور', 'إتقان العمل', 'بناء الأوطان'],
+    shortWords: ['ان', 'نا', 'انا', 'بان', 'ناب', 'نبات', 'بنت', 'بنات', 'نال', 'نالت', 'تين', 'لين', 'تان', 'بيان', 'لبنان', 'نبيل', 'نبل', 'تبين', 'يبين', 'ينال', 'تنال', 'انت', 'ابن', 'اب'],
+    longerWords: ['لبنان', 'نباتات', 'بيانات', 'بناتنا', 'انبات', 'نبيلنا', 'اليابان'],
+    phrases: ['انا نبيل', 'نال البيان', 'بنت نالت بيان', 'لبنان نبيل', 'نبات تين لين'],
     sentences: [
-      'إن الإتقان في التعلم طريق إلى النجاح والتميز في الحياة.',
-      'الإنسان الناجح يبني مستقبله بالجد والاجتهاد والأمانة.',
+      'انا نبيل نال بيان بنات لبنان لين تين بان',
+      'نالت بنت لبنان نبيل بيان نبات تين لين تبيان',
     ],
   },
+
+  // Lesson 4: ['م', 'ك'] + ['ب', 'ت', 'ي', 'ل', 'ا', 'ن']
   'م_ك': {
-    shortWords: ['مك', 'كم', 'مال', 'كلم', 'كامل', 'مالك', 'كتاب', 'مكتب', 'كلام', 'حكم'],
-    longerWords: ['المكتبة', 'الكتابة', 'المكارم', 'التكامل', 'المكتوب', 'الحكمة', 'المملكة'],
-    phrases: ['كتاب مفيد', 'مكارم الأخلاق', 'حكمة بليغة', 'علم مكتمل', 'إتقان الكتابة'],
+    shortWords: ['كم', 'كل', 'كان', 'ملك', 'مال', 'مالك', 'كتاب', 'كتب', 'يكتب', 'تكتب', 'كلام', 'تكلم', 'يتكلم', 'كامل', 'كمال', 'مكان', 'مكن', 'مكتب', 'متين', 'مات', 'من', 'ما', 'ام', 'لكم', 'بكم'],
+    longerWords: ['الكتاب', 'المكتب', 'المكان', 'الكمال', 'كلمات', 'تمكين', 'المكاتب', 'مملكتنا'],
+    phrases: ['كتاب كامل', 'ملك كامل', 'كتب كاتب', 'كلام متين', 'مكتب كمال'],
     sentences: [
-      'الكتاب خير جليس في الزمان والكلمة الطيبة صدقة تثمر خيرا.',
-      'من طلب العلا سهر الليالي وحصل على المجد بكمال خلقه.',
+      'كتب كاتب كتاب كامل مكن كمال من بيان متين',
+      'ملك كامل يكتب كلام متين بمكتب كمال بكل تمكين',
     ],
   },
+
+  // Lesson 5: ['س', 'ش'] + ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك']
   'س_ش': {
-    shortWords: ['سم', 'شم', 'سال', 'شال', 'سلام', 'شمس', 'شكر', 'شتاء', 'سماء', 'سهم'],
-    longerWords: ['السلامة', 'الشاكرين', 'الشمسية', 'المسلمين', 'الاستبشار', 'السماوية'],
-    phrases: ['سلام دائم', 'شمس مشرقة', 'شكر النعمة', 'سماء صافية', 'روح سامية'],
+    shortWords: ['سم', 'شم', 'سال', 'شال', 'سلام', 'شمس', 'مسك', 'سكت', 'شمل', 'سكن', 'مسكن', 'سليم', 'شمال', 'كسب', 'شب', 'شاب', 'شباب', 'سبب', 'سبت', 'سلك', 'شباك', 'شكل', 'سالم'],
+    longerWords: ['السلام', 'الشمس', 'المسكن', 'سالمين', 'شباكنا', 'مسكننا', 'الشباب', 'المسك'],
+    phrases: ['سلام كامل', 'شمس شمال', 'مسكن سليم', 'كسب سليم', 'سكت كاتب'],
     sentences: [
-      'السلام يعم النفوس والمسلم شاكر لربه في كل وقت وحين.',
-      'تشرق الشمس بنورها الدافئ لتبث الأمل والنشاط في الكون.',
+      'سكن سليم مسكن كامل وشمل السلام مسكن كمال وشبابنا',
+      'شمس تبتسم لكن سليم سكت وكتب كتاب السلام بمكان متين',
     ],
   },
+
+  // Lesson 6: ['ط', 'ذ'] + previously learned
   'ط_ذ': {
-    shortWords: ['طال', 'طاب', 'طالب', 'ذكر', 'طيب', 'طير', 'طريق', 'ذنب', 'ذكي', 'ظل'],
-    longerWords: ['الطيور', 'المذكور', 'الطريق', 'الذاكرين', 'الطبيعة', 'الطيبات', 'الذكاء'],
-    phrases: ['طريق النجاح', 'ذكر طيب', 'طالب مجد', 'طبيعة غناء', 'قول سديد'],
+    shortWords: ['طال', 'طاب', 'ذات', 'طلب', 'بطل', 'طبل', 'طين', 'طلي', 'طل', 'ذل', 'ذلك', 'بطاطا', 'طالب', 'يطلب', 'تطلب', 'طلبات', 'ذبل', 'نشاط', 'طماطم', 'طيب'],
+    longerWords: ['الطالب', 'النشاط', 'المطالب', 'طلبات', 'البطل', 'طليطلة', 'الطيب'],
+    phrases: ['طلب طالب', 'ذلك الطالب', 'طال ليل', 'طاب مسكن', 'نشاط بطل'],
     sentences: [
-      'طلب العلم فريضة على كل مسلم والذكر يطمئن به كل قلب سليم.',
-      'يمضي الطالب في طريق المعرفة واثق الخطى نحو هدفه السامي.',
+      'طلب ذلك الطالب كتاب كامل من كمال ونال نشاط بطل',
+      'طال ليل ذلك الطالب وطلب السلام بمكان طيب مع سالم',
     ],
   },
+
+  // Lesson 7: ['ق', 'ف'] + previously learned
   'ق_ف': {
-    shortWords: ['قف', 'فق', 'قال', 'فاز', 'قلم', 'فريق', 'فكر', 'فوق', 'قفل', 'فتح'],
-    longerWords: ['التفكير', 'الفضيلة', 'القرآن', 'الفرقان', 'التقدم', 'القراءة', 'الفارق'],
-    phrases: ['قلم فصيح', 'فريق فائز', 'فكر نير', 'قول حق', 'قوة الإرادة'],
+    shortWords: ['قال', 'قف', 'فق', 'فاق', 'قلب', 'قبل', 'قيل', 'قلم', 'فلك', 'فتن', 'فلت', 'فلق', 'قفل', 'قاسم', 'مقال', 'فطن', 'سقف', 'فلس', 'فقال', 'فكتب'],
+    longerWords: ['القلم', 'المقال', 'المستقبل', 'انفاق', 'اتفاق', 'فلسطين', 'القافلة'],
+    phrases: ['قال قاسم', 'كتب بالقلم', 'فاق ذلك الطالب', 'قلم كامل', 'مقال فطن'],
     sentences: [
-      'كتب القلم كلمات مضيئة وفاز الفريق بالمركز الأول في السباق.',
-      'القراءة مفتاح الفكر ومصدر الرقي في شتى مجالات الحياة.',
+      'قال قاسم مقال كامل وكتب بالقلم عن طالب فاق الكل',
+      'طلب قاسم قلم فكتب مقال فاق الكل ونال اتفاق تام',
     ],
   },
+
+  // Lesson 8: ['ع', 'غ'] + previously learned
   'ع_غ': {
-    shortWords: ['عن', 'غن', 'علم', 'غاب', 'عمل', 'غفور', 'عادل', 'غالي', 'عصفور', 'غيم'],
-    longerWords: ['العزيمة', 'الغفران', 'العدالة', 'العملية', 'العظماء', 'الغايات', 'العطاء'],
-    phrases: ['علم نافع', 'عمل صالح', 'غيم ماطر', 'عدل شامل', 'غفران الذنوب'],
+    shortWords: ['علم', 'عمل', 'عام', 'غاب', 'غلى', 'غالي', 'غلب', 'بلغ', 'عالي', 'عين', 'عن', 'مع', 'عسل', 'شعل', 'شعاع', 'غنم', 'طعام', 'علف', 'غفل', 'عقاب', 'عقل', 'معلم', 'تعلم', 'يعلم', 'يعمل'],
+    longerWords: ['التعليم', 'العلم', 'المعلم', 'العمل', 'العقل', 'علامات', 'الاعلام', 'الغالي'],
+    phrases: ['علم نافع', 'عمل متقن', 'بلغ الطالب', 'معلم كامل', 'عقل سليم'],
     sentences: [
-      'العلم يرفع بيوتا لا عماد لها والغيم يسقي الأرض فتزدهر بالحياة.',
-      'العمل المخلص يصنع الفارق والعطاء يبني مجد الأمم وحضارتها.',
+      'العلم النافع يبني العقل السليم ويعمل المعلم مع طالب فطن',
+      'بلغ الطالب قمة العلم بالعمل النافع وتعلم مع معلم كامل',
     ],
   },
+
+  // Lesson 9: ['ه', 'خ'] + previously learned
   'ه_خ': {
-    shortWords: ['هو', 'خي', 'خير', 'هناء', 'خبر', 'خاتم', 'نهر', 'خليل', 'همة', 'خالد'],
-    longerWords: ['الهمام', 'الخالدين', 'الأنهار', 'الخيرات', 'الهداية', 'الخصال', 'الهمة'],
-    phrases: ['فعل الخير', 'همة عالية', 'خلق حسن', 'هداية القلوب', 'خير الناس'],
+    shortWords: ['هي', 'هم', 'هنا', 'هناك', 'به', 'له', 'منه', 'عنه', 'معه', 'خاف', 'خاب', 'خان', 'خيل', 'خيط', 'ختم', 'خلق', 'نخل', 'فخم', 'مخ', 'خف', 'خط', 'سهل', 'مهل', 'فهم', 'همم', 'هاتف', 'شبه', 'خام', 'خال', 'خشب', 'ذهب'],
+    longerWords: ['الخلق', 'الخيل', 'التفاهم', 'المتفهم', 'اخلاقنا', 'اخفاف', 'المخلص'],
+    phrases: ['فهم الطالب', 'ذهب معه', 'خلق طيب', 'نخل باسق', 'خط متقن'],
     sentences: [
-      'الخير في ما اختاره الله والهمة العالية تبلغ بصاحبها أعالي القمم.',
-      'أهل المروءة يسارعون في الخيرات ويبنون مجدهم بجميل الخصال.',
+      'فهم الطالب كلام معلمه وذهب معه بخلق طيب وعلم عالي',
+      'هناك خيل بخط متقن فقام طالب تفهم كل علم نافع بهمة',
     ],
   },
+
+  // Lesson 10: ['ح', 'ج'] + previously learned
   'ح_ج': {
-    shortWords: ['حج', 'جح', 'حكم', 'جمال', 'حلم', 'جبل', 'حسن', 'جناح', 'حجر', 'جميل'],
-    longerWords: ['الحكمية', 'الجماليات', 'الجبال', 'الحكمة', 'الجهاد', 'الحسنى', 'الحصن'],
-    phrases: ['حكمة بالغة', 'جمال طبيعي', 'جبل شامخ', 'خلق جميل', 'حق صريح'],
+    shortWords: ['حج', 'حق', 'حكم', 'حلم', 'حجم', 'جمل', 'جبل', 'جناح', 'جميل', 'جامع', 'جمع', 'نجاح', 'حاج', 'حجة', 'نجم', 'تاج', 'نتاج', 'جهل', 'حليم', 'حكيم', 'حاكم', 'نجيب', 'حب', 'حسب', 'جلب'],
+    longerWords: ['الحكيم', 'الجميل', 'النجاح', 'الجبال', 'الجامع', 'الحجاج', 'المجاهد'],
+    phrases: ['حكم حكيم', 'جبل عالي', 'نجاح كامل', 'تاج جميل', 'خلق جميل'],
     sentences: [
-      'الحكمة ضالة المؤمن والجمال الحقيقي ينبع من حسن الخلق والعمل.',
-      'يقف الجبل شامخا في الأفق والعدل أساس الملك وركيزة الحكم.',
+      'حكم الحاكم بالحق فجمع المعلم طلاب الجامع بمكان جميل',
+      'نجح الطالب نجاحا جميلا فنال تاج النجاح بعلمه الحكيم',
     ],
   },
+
+  // Lesson 11: ['ص', 'ض'] + previously learned
   'ص_ض': {
-    shortWords: ['صم', 'ضم', 'صبر', 'ضوء', 'صدق', 'ضيف', 'صباح', 'ضياء', 'صانع', 'ضامن'],
-    longerWords: ['الصابرين', 'الصالحات', 'الوضوء', 'المصباح', 'الإنصاف', 'الضيافة', 'الصدوق'],
-    phrases: ['صبر جميل', 'صدق الحديث', 'ضياء الفجر', 'صباح الخير', 'صفاء النفس'],
+    shortWords: ['صام', 'صان', 'صمت', 'صحب', 'صبح', 'صحف', 'ضل', 'ضاع', 'ضيف', 'نصف', 'فصل', 'اصل', 'صلب', 'صيف', 'ضيق', 'حصان', 'صالح', 'مصلح', 'نصح', 'قبض', 'نبض', 'غضب', 'بيض', 'خصم', 'فحص', 'قفص', 'مقص', 'صباح'],
+    longerWords: ['الصباح', 'المصلح', 'الصالح', 'الفصل', 'الانصاف', 'الخصام', 'الصامد'],
+    phrases: ['صاحب صالح', 'صباح طيب', 'انصاف كامل', 'فصل الصيف', 'نصح مصلح'],
     sentences: [
-      'الصبر مفتاح الفرج وصدق الحديث زينة الإنسان في كل مجتمع.',
-      'يشرق ضياء الصباح حاملا معه بشائر الأمل والعمل الدؤوب.',
+      'صان الصالح لسانه فنصح صاحب طيب بخلق حسن',
+      'يصبح الصباح فيقبل الصالح على العمل بنشاط وانصاف',
     ],
   },
+
+  // Lesson 12: ['د', 'ث'] + previously learned
   'د_ث': {
-    shortWords: ['دم', 'ثب', 'درس', 'ثمر', 'دار', 'ثقة', 'دافع', 'ثبات', 'درهم', 'ثواب'],
-    longerWords: ['الدراسة', 'الثمرات', 'التدريب', 'الثوابت', 'الدوام', 'الدروس', 'الثريا'],
-    phrases: ['ثمرة الجهد', 'ثبات المبدأ', 'درس مفيد', 'ثقة بالنفس', 'دوام التوفيق'],
+    shortWords: ['دم', 'دان', 'دنا', 'دمع', 'دخل', 'دعم', 'دافع', 'دل', 'دلال', 'ثب', 'ثبت', 'بث', 'ثلث', 'ثلاث', 'اثبت', 'ثعلب', 'ثياب', 'ثمن', 'ثمين', 'مثل', 'تمثال', 'حديث', 'حدث', 'بحث', 'باحث', 'يد', 'مد', 'سد', 'شد', 'حد', 'جد', 'عدد', 'مدد', 'عهد', 'شهد', 'بلد', 'جلد', 'صدق', 'فهد'],
+    longerWords: ['الحديث', 'الباحث', 'الثبات', 'المدخل', 'الاستعداد', 'الصادق', 'الاجتهاد'],
+    phrases: ['ثبت الطالب', 'بحث باحث', 'حديث ثابت', 'دافع بالحق', 'صدق الحديث'],
     sentences: [
-      'درس الطالب دروسه بجد وثبت على طريق النجاح حتى بلغ غايته.',
-      'الثبات على الحق خلق الكرام والاجتهاد يثمر دائما خيرا وفيرا.',
+      'ثبت الباحث على طلب العلم فدخل مجلس العلم فبحث في حديث ثابت',
+      'شهد الطالب صدق الحديث فدافع بالحق واثبت ثبات الجبال',
     ],
   },
+
+  // Lesson 13: ['ر', 'ى'] + previously learned
   'ر_ى': {
-    shortWords: ['رب', 'رى', 'رأى', 'رحمة', 'رمى', 'ريح', 'روى', 'ربيع', 'هدى', 'بشرى'],
-    longerWords: ['الرحيم', 'الرياض', 'البشرى', 'الرؤية', 'الهدى', 'الرايات', 'المرتضى'],
-    phrases: ['رحمة واسعة', 'فصل الربيع', 'بشرى خير', 'هدى ونور', 'رأي سديد'],
+    shortWords: ['رى', 'رمى', 'رب', 'دار', 'بار', 'نار', 'جار', 'حار', 'سار', 'شار', 'عار', 'غار', 'فار', 'قار', 'مر', 'قر', 'سر', 'بر', 'حر', 'ضر', 'فر', 'طار', 'طير', 'ريح', 'ريش', 'ربيع', 'كريم', 'رحيم', 'سفر', 'قمر', 'بحر', 'نهر', 'هدى', 'فتى', 'على', 'الى', 'بلى', 'حتى', 'سعى', 'مشى', 'كفى', 'بقى', 'بشرى', 'صغرى', 'كبرى', 'درس', 'طريق', 'فريق', 'صبر'],
+    longerWords: ['الطريق', 'الربيع', 'الرحيم', 'الرياض', 'البشرى', 'المرتضى', 'الصابر'],
+    phrases: ['طريق النجاح', 'فصل الربيع', 'بشرى خير', 'هدى مبين', 'سعى الفتى'],
     sentences: [
-      'الرحمة تعمر القلوب وفصل الربيع يكسو الأرض حلل الخضرة والجمال.',
-      'رأى الحكيم في العلم هدى ونورا ينير دروب الأجيال القادمة.',
+      'سار الفتى في طريق العلم فرأى هدى يهديه الى بر الامان',
+      'اقبل الربيع فكسى الارض حسنا وبشرى لكل فتى سعى للخير',
     ],
   },
+
+  // Lesson 14: ['ة', 'و'] + previously learned
   'ة_و': {
-    shortWords: ['ورد', 'وطن', 'جنة', 'روعة', 'قوة', 'وردة', 'وعد', 'نور', 'حياة', 'حكمة'],
-    longerWords: ['الوطنية', 'المودة', 'الوردية', 'الأخوة', 'الحكمة', 'القوية', 'الرحمة'],
-    phrases: ['حب الوطن', 'جنة الخلد', 'كلمة طيبة', 'حياة كريمة', 'قوة الإيمان'],
+    shortWords: ['ورد', 'وطن', 'ولد', 'وعد', 'وقت', 'وقع', 'وفد', 'وجد', 'وجه', 'ورقة', 'وردة', 'رحمة', 'نعمة', 'حكمة', 'جنة', 'شجرة', 'قوة', 'مودة', 'اخوة', 'دعوة', 'دولة', 'صورة', 'قرية', 'مدينة', 'مكتبة', 'مدرسة', 'جامعة', 'كلمة', 'طيبة', 'صلاة', 'حياة', 'نور', 'يوم', 'قول', 'هو'],
+    longerWords: ['الوطنية', 'المودة', 'الوردية', 'المكتبة', 'المدرسة', 'الحكمة', 'الرحمة'],
+    phrases: ['حب الوطن', 'كلمة طيبة', 'حياة كريمة', 'قوة الامل', 'شجرة ورد'],
     sentences: [
-      'حب الوطن من الإيمان والحكمة نور يضيء درب السائرين نحو المجد.',
-      'الكلمة الطيبة كشجرة طيبة أصلها ثابت وفرعها في السماء.',
+      'الكلمة الطيبة كشجرة طيبة تثمر خيرا ومودة في قلوب الناس',
+      'حب الوطن والعمل بقوة وحكمة يبني نهضة كريمة في الحياة',
     ],
   },
+
+  // Lesson 15: ['ز', 'ظ'] + previously learned
   'ز_ظ': {
-    shortWords: ['زر', 'ظل', 'زمن', 'ظفر', 'زهور', 'ظاهر', 'زيت', 'ظرف', 'زائر', 'نظيف'],
-    longerWords: ['الظاهرين', 'الزاهرة', 'الظلال', 'الظفر', 'الزمان', 'الزينة', 'النزاهة'],
+    shortWords: ['زر', 'زار', 'زمن', 'زاد', 'زال', 'زيت', 'زهر', 'زهور', 'زينة', 'نزاهة', 'عزم', 'جزم', 'حزم', 'غزال', 'فاز', 'حاز', 'ظل', 'ظفر', 'ظهر', 'ظاهر', 'ظرف', 'نظر', 'منظر', 'نظيف', 'حظ', 'غلظ', 'وعظ', 'حفظ', 'حافظ', 'يعظ', 'عظيم', 'عظمة', 'ظلام'],
+    longerWords: ['الظاهرين', 'الزاهرة', 'الظلال', 'الزمان', 'النزاهة', 'المحافظ', 'العظيم'],
     phrases: ['زمن العطاء', 'ظل وارف', 'زهور نضرة', 'ظفر مؤزر', 'نظافة تامة'],
     sentences: [
-      'الظفر حليف الصابرين والزهور تعطر الأرجاء في فصل الربيع الزاهر.',
-      'ظل الشجرة وارف في الظهيرة وحسن الخلق زينة المرء في كل زمن.',
+      'الظفر حليف الصابرين ومن حفظ لسانه نال عزا وظفرا في كل زمن',
+      'ظل الشجرة وارف في الظهيرة وحسن الخلق زينة المرء في الحياة',
     ],
   },
+
+  // Lesson 16: ['ئ', 'ء', 'ؤ'] + all previous
   'ئ_ء_ؤ': {
-    shortWords: ['شيء', 'دفء', 'بدء', 'قارئ', 'لؤلؤ', 'مؤمن', 'بؤس', 'فؤاد', 'ضياء', 'هواء'],
-    longerWords: ['المسؤولية', 'المؤمنين', 'البراءة', 'الرئيسية', 'الأفئدة', 'التفاؤل', 'القراءة'],
+    shortWords: ['شيء', 'دفء', 'بطء', 'بدء', 'جزء', 'سماء', 'ماء', 'هواء', 'بناء', 'قارئ', 'شاطئ', 'هادئ', 'مبتدئ', 'مسؤول', 'لؤلؤ', 'مؤمن', 'فؤاد', 'بؤس', 'رؤية', 'تفاؤل', 'كفاءة', 'براءة', 'نشأة', 'مسألة'],
+    longerWords: ['المسؤولية', 'المؤمنين', 'البراءة', 'الرئيسية', 'التفاؤل', 'القراءة', 'المبتدئين'],
     phrases: ['دفء المشاعر', 'بدء العمل', 'قلب مؤمن', 'مسؤولية كبرى', 'نقاء الهواء'],
     sentences: [
-      'المؤمن يتفاءل بالخير في كل أمر ويتحمل المسؤولية بشجاعة وإخلاص.',
-      'القراءة المستمرة تفتح آفاق العقل وتملأ الفؤاد بالحكمة والضياء.',
+      'المؤمن يتفاءل بالخير في كل بدء ويتحمل المسؤولية بشجاعة واخلاص',
+      'القراءة المستمرة تضيء شاطئ الفكر وتملأ الفؤاد بالحكمة والضياء',
     ],
   },
 };
 
 /**
- * Generates 12 substantial, pedagogically progressive pages for a 2-key lesson
- * adhering to the Typing.com model requested.
+ * Generates 12 substantial, pedagogically progressive pages for a 2-key (or 3-key) lesson.
+ * Strictly guarantees that EVERY character in EVERY page belongs to `allowedKeys` or `' '`.
  */
 export function generateTwoKeyLessonPages(
   k1: string,
@@ -165,16 +206,35 @@ export function generateTwoKeyLessonPages(
   prevKeys: string[],
   lessonTitleAr: string,
   lessonTitleEn: string,
-  lessonTitleBn: string
+  lessonTitleBn: string,
+  k3?: string
 ): LessonPage[] {
-  const p = prevKeys.filter((k) => k !== k1 && k !== k2 && k !== ' ');
+  const p = prevKeys.filter((k) => k !== k1 && k !== k2 && (!k3 || k !== k3) && k !== ' ');
+  const targetNewKeys = k3 ? [k1, k2, k3] : [k1, k2];
+  const allowedKeys = Array.from(new Set([...p, ...targetNewKeys]));
 
-  const vocabKey = `${k1}_${k2}`;
-  const vocab = LETTER_VOCABULARY[vocabKey] || {
-    shortWords: [`${k1}${k2}`, `${k2}${k1}`, `${k1}ا`, `${k2}ي`, `${k1}ت`],
-    longerWords: [`الم${k1}${k2}`, `ال${k2}${k1}`, `${k1}${k2}ات`],
-    phrases: [`${k1}${k2} طيب`, `علم ونور`, `طريق النجاح`],
-    sentences: [`التعلم المستمر يبني مهارة عالية ويزيد السرعة والدقة.`],
+  const vocabKey = k3 ? `${k1}_${k2}_${k3}` : `${k1}_${k2}`;
+  const rawVocab = LETTER_VOCABULARY[vocabKey] || {
+    shortWords: [`${k1}${k2}`, `${k2}${k1}`, `${k1}${k2}${k1}`, `${k2}${k1}${k2}`],
+    longerWords: [`${k1}${k2}${k1}${k2}`, `${k2}${k1}${k2}${k1}`],
+    phrases: [`${k1}${k2} ${k2}${k1}`, `${k1} ${k2} ${k1}${k2}`],
+    sentences: [`${k1}${k2} ${k2}${k1} ${k1} ${k2} ${k2}${k1} ${k1}${k2}`],
+  };
+
+  // Strictly sanitize all vocabulary against allowedKeys!
+  const vocab: LessonVocab = {
+    shortWords: rawVocab.shortWords
+      .map((w) => sanitizeLessonText(w, allowedKeys))
+      .filter((w) => w.length > 0),
+    longerWords: rawVocab.longerWords
+      .map((w) => sanitizeLessonText(w, allowedKeys))
+      .filter((w) => w.length > 0),
+    phrases: rawVocab.phrases
+      .map((ph) => sanitizeLessonText(ph, allowedKeys))
+      .filter((ph) => ph.length > 0),
+    sentences: rawVocab.sentences
+      .map((s) => sanitizeLessonText(s, allowedKeys))
+      .filter((s) => s.length > 0),
   };
 
   const prev1 = p.length > 0 ? p[0] : k1;
@@ -187,24 +247,28 @@ export function generateTwoKeyLessonPages(
   const dbl1 = `${k1}${k1}`;
   const dbl2 = `${k2}${k2}`;
 
-  const shortStr = vocab.shortWords.join(' ');
-  const longStr = vocab.longerWords.join(' ');
-  const phraseStr = vocab.phrases.join(' • ');
-  const sentenceStr1 = vocab.sentences[0] || 'التعلم المستمر يثمر دائما نجاحا باهرا.';
+  const shortStr = (vocab.shortWords.length > 0 ? vocab.shortWords : [pair1, pair2]).join(' ');
+  const longStr = (vocab.longerWords.length > 0 ? vocab.longerWords : [pair1, pair2]).join(' ');
+  const phraseStr = (vocab.phrases.length > 0 ? vocab.phrases : [shortStr]).join(' ');
+  const sentenceStr1 = vocab.sentences[0] || `${shortStr} ${phraseStr}`;
   const sentenceStr2 = vocab.sentences[1] || sentenceStr1;
 
-  const pages: LessonPage[] = [
+  const keyDisplay = k3 ? `(${k1}) و (${k2}) و (${k3})` : `(${k1}) و (${k2})`;
+
+  const rawPages: LessonPage[] = [
     // Page 1 — New key introduction
     {
       pageNumber: 1,
       purpose: 'intro',
-      titleAr: `التعريف بالمفتاحين: (${k1}) و (${k2})`,
-      titleEn: `Key Introduction: (${k1}) & (${k2})`,
-      titleBn: `কী পরিচিতি: (${k1}) এবং (${k2})`,
+      titleAr: `التعريف بالمفاتيح: ${keyDisplay}`,
+      titleEn: `Key Introduction: ${k1} & ${k2}`,
+      titleBn: `কী পরিচিতি: ${k1} এবং ${k2}`,
       instructionAr: `تعرف على موضع الحرفين واضغط بهدوء لبدء بناء الذاكرة العضلية.`,
-      instructionEn: `Locate (${k1}) and (${k2}). Press with steady rhythm to anchor muscle memory.`,
-      instructionBn: `কীবোর্ডে (${k1}) ও (${k2}) এর অবস্থান দেখুন এবং নির্দিষ্ট আঙুল দিয়ে প্রেস করুন।`,
-      targetText: `${k1} ${k2} ${k1} ${k2} ${k1} ${k2} ${k1} ${k1} ${k2} ${k2} ${k1} ${k2} ${k1} ${k2} ${k1} ${k1} ${k2} ${k2} ${k1} ${k2}`,
+      instructionEn: `Locate ${k1} and ${k2}. Press with steady rhythm to anchor muscle memory.`,
+      instructionBn: `কীবোর্ডে ${k1} ও ${k2} এর অবস্থান দেখুন এবং নির্দিষ্ট আঙুল দিয়ে প্রেস করুন।`,
+      targetText: k3
+        ? `${k1} ${k2} ${k3} ${k1} ${k2} ${k3} ${k1} ${k1} ${k2} ${k2} ${k3} ${k3} ${k1} ${k2} ${k3}`
+        : `${k1} ${k2} ${k1} ${k2} ${k1} ${k2} ${k1} ${k1} ${k2} ${k2} ${k1} ${k2} ${k1} ${k2} ${k1} ${k1} ${k2} ${k2} ${k1} ${k2}`,
     },
     // Page 2 — Single-key repetition
     {
@@ -216,17 +280,19 @@ export function generateTwoKeyLessonPages(
       instructionAr: `اضرب المفتاح بأطراف الأصابع الصحيحة مع الحفاظ على استقرار اليدين.`,
       instructionEn: `Strike each key with its assigned finger while keeping hands balanced on home row.`,
       instructionBn: `হাত স্থির রেখে নির্ধারিত আঙুল দিয়ে প্রতিটি কী পুনরাবৃত্তি করুন।`,
-      targetText: `${k1} ${k1} ${k1} ${k1} ${k1} ${k2} ${k2} ${k2} ${k2} ${k2} ${k1} ${k1} ${k1} ${k2} ${k2} ${k2} ${k1} ${k1} ${k2} ${k2} ${k1} ${k2}`,
+      targetText: k3
+        ? `${k1} ${k1} ${k1} ${k2} ${k2} ${k2} ${k3} ${k3} ${k3} ${k1} ${k2} ${k3} ${k1} ${k2} ${k3}`
+        : `${k1} ${k1} ${k1} ${k1} ${k1} ${k2} ${k2} ${k2} ${k2} ${k2} ${k1} ${k1} ${k1} ${k2} ${k2} ${k2} ${k1} ${k1} ${k2} ${k2} ${k1} ${k2}`,
     },
     // Page 3 — Two-key combinations
     {
       pageNumber: 3,
       purpose: 'combinations',
-      titleAr: `تراكيب الحرفين والتبديل الزوجي`,
+      titleAr: `تراكيب الحروف والتبديل الزوجي`,
       titleEn: `Two-Key Combinations & Digraphs`,
       titleBn: `দুই কী-এর জোড়া ও যুগল রূপ`,
       instructionAr: `بدل بين الحرفين في تراكيب زوجية سلسة لبناء ترابط عصبي حركي.`,
-      instructionEn: `Flow between the two keys in paired digraphs to bridge neural pathways.`,
+      instructionEn: `Flow between the keys in paired digraphs to bridge neural pathways.`,
       instructionBn: `দুই অক্ষরের সমন্বয়ে ছন্দ তৈরি করে সাবলীলভাবে টাইপ করুন।`,
       targetText: `${pair1} ${pair2} ${pair1} ${pair2} ${dbl1} ${dbl2} ${pair1} ${pair2} ${dbl1} ${dbl2} ${pair1} ${pair2} ${pair1} ${pair2}`,
     },
@@ -250,7 +316,7 @@ export function generateTwoKeyLessonPages(
       titleEn: `Cumulative Integration with Mastered Keys`,
       titleBn: `পূর্বে শেখা কী-এর সাথে সমন্বয়`,
       instructionAr: `ندمج الحرفين الجديدين مع الحروف التي أتقنتها في الدروس السابقة.`,
-      instructionEn: `Integrate the two newly learned keys with previously mastered letters.`,
+      instructionEn: `Integrate newly learned keys with previously mastered letters.`,
       instructionBn: `পূর্বে শেখা বর্ণগুলোর সাথে নতুন বর্ণগুলো মিলিয়ে টাইপ করুন।`,
       targetText: p.length > 1
         ? `${k1} ${prev1} ${k2} ${prev2} ${k1}${prev1} ${k2}${prev2} ${prev1}${k1} ${prev2}${k2} ${k1} ${prev3} ${k2} ${prev1} ${k1} ${k2}`
@@ -290,7 +356,7 @@ export function generateTwoKeyLessonPages(
       instructionAr: `اكتب العبارات بانسيابية مع الضغط الخفيف على المسافة بالإبهام.`,
       instructionEn: `Type continuous phrases smoothly, using light thumb taps for spaces.`,
       instructionBn: `শব্দগুলোর মাঝে বৃদ্ধাঙ্গুলি দিয়ে আলতো করে স্পেস চাপুন।`,
-      targetText: `${phraseStr} • ${phraseStr}`,
+      targetText: `${phraseStr} ${phraseStr}`,
     },
     // Page 9 — Sentences
     {
@@ -342,7 +408,11 @@ export function generateTwoKeyLessonPages(
     },
   ];
 
-  return pages;
+  // Guarantee that EVERY page passes strict character restriction!
+  return rawPages.map((page) => ({
+    ...page,
+    targetText: sanitizeLessonText(page.targetText, allowedKeys),
+  }));
 }
 
 /**
@@ -447,7 +517,7 @@ export function generateHarakatLessonPages(
       instructionAr: `تدرب على كتابة تراكيب إضافية ونعتية مشكولة بدقة متناهية.`,
       instructionEn: `Practice typing grammatical phrases with precise diacritics.`,
       instructionBn: `ব্যাকরণগত হরকতযুক্ত বাক্যখণ্ডগুলো অভ্যাস করুন।`,
-      targetText: `طَلَبُ الْعِلْمِ • نُورُ الْحَقِّ • حُسْنُ الْخُلُقِ • صِدْقُ الْقَوْلِ • عَمَلٌ صَالِحٌ`,
+      targetText: `طَلَبُ الْعِلْمِ نُورُ الْحَقِّ حُسْنُ الْخُلُقِ صِدْقُ الْقَوْلِ عَمَلٌ صَالِحٌ`,
     },
     {
       pageNumber: 9,
@@ -650,7 +720,7 @@ export function generateAdvancedLessonPages(
 }
 
 // =========================================================================
-// 3 MASTER COURSE LEVELS (Matching User Prompt Requirements)
+// 3 MASTER COURSE LEVELS
 // =========================================================================
 
 export const COURSES: Course[] = [
@@ -703,18 +773,110 @@ export const COURSES: Course[] = [
   },
 ];
 
-// =========================================================================
-// ALL 31 LESSONS WITH 12 RICH PAGES EACH
-// =========================================================================
+// Helper to construct a strictly validated Beginner lesson
+function createBeginnerLesson(params: {
+  id: string;
+  order: number;
+  titleAr: string;
+  titleEn: string;
+  titleBn: string;
+  descriptionAr: string;
+  descriptionEn: string;
+  descriptionBn: string;
+  difficulty: LessonDifficulty;
+  newKeys: string[];
+  previouslyLearnedKeys: string[];
+  estimatedSeconds: number;
+}): Lesson {
+  const rules = computeLessonKeyRules(params.newKeys, params.previouslyLearnedKeys);
+  const k1 = params.newKeys[0];
+  const k2 = params.newKeys[1] || params.newKeys[0];
+  const k3 = params.newKeys[2];
+
+  const pages = generateTwoKeyLessonPages(
+    k1,
+    k2,
+    rules.previouslyLearnedKeys,
+    params.titleAr,
+    params.titleEn,
+    params.titleBn,
+    k3
+  );
+
+  const vocabKey = k3 ? `${k1}_${k2}_${k3}` : `${k1}_${k2}`;
+  const vocab = LETTER_VOCABULARY[vocabKey];
+  const rawTarget = vocab
+    ? `${vocab.shortWords.slice(0, 8).join(' ')} ${vocab.longerWords.slice(0, 4).join(' ')}`
+    : `${k1} ${k2} ${k1}${k2} ${k2}${k1}`;
+  const targetText = sanitizeLessonText(rawTarget, rules.allowedKeys);
+
+  return {
+    id: params.id,
+    courseId: 'course-beginner',
+    level: 1,
+    order: params.order,
+    titleAr: params.titleAr,
+    titleEn: params.titleEn,
+    titleBn: params.titleBn,
+    descriptionAr: params.descriptionAr,
+    descriptionEn: params.descriptionEn,
+    descriptionBn: params.descriptionBn,
+    difficulty: params.difficulty,
+    newKeys: rules.newKeys,
+    focusKeys: rules.newKeys,
+    previouslyLearnedKeys: rules.previouslyLearnedKeys,
+    allowedKeys: rules.allowedKeys,
+    forbiddenKeys: rules.forbiddenKeys,
+    pages,
+    totalPages: pages.length,
+    targetText,
+    estimatedSeconds: params.estimatedSeconds,
+  };
+}
+
+// -------------------------------------------------------------
+// PROGRESSIVE UNLOCK ACCUMULATOR FOR 16 BEGINNER LESSONS
+// -------------------------------------------------------------
+const kL1 = ['ب', 'ت'];
+const kL2 = ['ي', 'ل'];
+const kL3 = ['ا', 'ن'];
+const kL4 = ['م', 'ك'];
+const kL5 = ['س', 'ش'];
+const kL6 = ['ط', 'ذ'];
+const kL7 = ['ق', 'ف'];
+const kL8 = ['ع', 'غ'];
+const kL9 = ['ه', 'خ'];
+const kL10 = ['ح', 'ج'];
+const kL11 = ['ص', 'ض'];
+const kL12 = ['د', 'ث'];
+const kL13 = ['ر', 'ى'];
+const kL14 = ['ة', 'و'];
+const kL15 = ['ز', 'ظ'];
+const kL16 = ['ئ', 'ء', 'ؤ'];
+
+const prev0: string[] = [];
+const prev1 = [...kL1];
+const prev2 = [...prev1, ...kL2];
+const prev3 = [...prev2, ...kL3];
+const prev4 = [...prev3, ...kL4];
+const prev5 = [...prev4, ...kL5];
+const prev6 = [...prev5, ...kL6];
+const prev7 = [...prev6, ...kL7];
+const prev8 = [...prev7, ...kL8];
+const prev9 = [...prev8, ...kL9];
+const prev10 = [...prev9, ...kL10];
+const prev11 = [...prev10, ...kL11];
+const prev12 = [...prev11, ...kL12];
+const prev13 = [...prev12, ...kL13];
+const prev14 = [...prev13, ...kL14];
+const prev15 = [...prev14, ...kL15];
 
 export const ALL_LESSONS: Lesson[] = [
   // -------------------------------------------------------------
   // LEVEL 1: BEGINNER — ALL ARABIC LETTERS (16 LESSONS)
   // -------------------------------------------------------------
-  {
+  createBeginnerLesson({
     id: 'l-1-1',
-    courseId: 'course-beginner',
-    level: 1,
     order: 1,
     titleAr: 'ب + ت (مفتاحا الارتكاز الأساسيان)',
     titleEn: 'Baa + Taa (Anchor Keys)',
@@ -723,18 +885,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Rest left index on Baa (F) and right index on Taa (J).',
     descriptionBn: 'বাম তর্জনী ب (F) এবং ডান তর্জনী ت (J) এর উপর রাখুন।',
     difficulty: 'beginner',
-    newKeys: ['ب', 'ت'],
-    focusKeys: ['ب', 'ت'],
-    previouslyLearnedKeys: [],
-    pages: generateTwoKeyLessonPages('ب', 'ت', [], 'ب + ت', 'Baa + Taa', 'ب + ت'),
-    totalPages: 12,
-    targetText: 'بت تب بنت بيت نبت توت ثبت تائب تبت بنات تثبت استتباب ثوابت نباتات تثبت من الخبر يا بني وتسلح بالصبر.',
+    newKeys: kL1,
+    previouslyLearnedKeys: prev0,
     estimatedSeconds: 90,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-1-2',
-    courseId: 'course-beginner',
-    level: 1,
     order: 2,
     titleAr: 'ي + ل (حركة الوسطى وامتداد السبابة)',
     titleEn: 'Yaa + Lam (Inner Reach & Middle)',
@@ -743,18 +900,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Left middle on Yaa (D) and left index stretches to Lam (G).',
     descriptionBn: 'বাম মধ্যমা ي (D) এবং বাম তর্জনী ل (G) এর দিকে প্রসারণ।',
     difficulty: 'beginner',
-    newKeys: ['ي', 'ل'],
-    focusKeys: ['ي', 'ل'],
-    previouslyLearnedKeys: ['ب', 'ت'],
-    pages: generateTwoKeyLessonPages('ي', 'ل', ['ب', 'ت'], 'ي + ل', 'Yaa + Lam', 'ي + ل'),
-    totalPages: 12,
-    targetText: 'يل لي ليل بيت تين لين تيل يلين يتلو ليت التالي الليالي السبيل اليقين البلاغ الليل ينجلي بنور الفجر المشرق.',
+    newKeys: kL2,
+    previouslyLearnedKeys: prev1,
     estimatedSeconds: 95,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-2-1',
-    courseId: 'course-beginner',
-    level: 1,
     order: 3,
     titleAr: 'ا + ن (الألف والنون)',
     titleEn: 'Alif + Noon (Home Core)',
@@ -763,18 +915,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Right index stretches to Alif (H) and right middle on Noon (K).',
     descriptionBn: 'ডান তর্জনী ا (H) এবং ডান মধ্যমা ن (K) এর উপর।',
     difficulty: 'beginner',
-    newKeys: ['ا', 'ن'],
-    focusKeys: ['ا', 'ن'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل'],
-    pages: generateTwoKeyLessonPages('ا', 'ن', ['ب', 'ت', 'ي', 'ل'], 'ا + ن', 'Alif + Noon', 'ا + ن'),
-    totalPages: 12,
-    targetText: 'ان نا انا نال بان ناب نبات نور نجم نام الإنسان الأمانة الإيمان البيان إن الإتقان في التعلم طريق إلى النجاح.',
+    newKeys: kL3,
+    previouslyLearnedKeys: prev2,
     estimatedSeconds: 100,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-2-2',
-    courseId: 'course-beginner',
-    level: 1,
     order: 4,
     titleAr: 'م + ك (الميم والكاف)',
     titleEn: 'Meem + Kaaf (Ring & Pinky)',
@@ -783,18 +930,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Right ring on Meem (L) and right pinky on Kaaf (;).',
     descriptionBn: 'ডান অনামিকা م (L) এবং ডান কনিষ্ঠা ك (;) এর উপর।',
     difficulty: 'beginner',
-    newKeys: ['م', 'ك'],
-    focusKeys: ['م', 'ك'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن'],
-    pages: generateTwoKeyLessonPages('م', 'ك', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن'], 'م + ك', 'Meem + Kaaf', 'م + ك'),
-    totalPages: 12,
-    targetText: 'مك كم مال كلم كامل مالك كتاب مكتب كلام حكم المكتبة الكتابة المكارم التكامل الكتاب خير جليس في الزمان.',
+    newKeys: kL4,
+    previouslyLearnedKeys: prev3,
     estimatedSeconds: 105,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-2-3',
-    courseId: 'course-beginner',
-    level: 1,
     order: 5,
     titleAr: 'س + ش (السين والشين)',
     titleEn: 'Seen + Sheen (Left Ring & Pinky)',
@@ -803,18 +945,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Left ring on Seen (S) and left pinky on Sheen (A).',
     descriptionBn: 'বাম অনামিকা س (S) এবং বাম কনিষ্ঠা ش (A) এর উপর।',
     difficulty: 'easy',
-    newKeys: ['س', 'ش'],
-    focusKeys: ['س', 'ش'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'],
-    pages: generateTwoKeyLessonPages('س', 'ش', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'], 'س + ش', 'Seen + Sheen', 'س + ش'),
-    totalPages: 12,
-    targetText: 'سم شم سال شال سلام شمس شكر شتاء سماء سهم السلامة الشاكرين الشمسية السلام يعم النفوس والمسلم شاكر لربه.',
+    newKeys: kL5,
+    previouslyLearnedKeys: prev4,
     estimatedSeconds: 110,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-2-4',
-    courseId: 'course-beginner',
-    level: 1,
     order: 6,
     titleAr: 'ط + ذ (الطاء والذال)',
     titleEn: 'Taa + Thaal (Home Edge Keys)',
@@ -823,18 +960,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Right pinky on Taa (\') and left pinky on Thaal (`).',
     descriptionBn: 'ডান কনিষ্ঠা ط এবং বাম কনিষ্ঠা ذ এর প্রান্তে।',
     difficulty: 'easy',
-    newKeys: ['ط', 'ذ'],
-    focusKeys: ['ط', 'ذ'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك', 'س', 'ش'],
-    pages: generateTwoKeyLessonPages('ط', 'ذ', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك', 'س', 'ش'], 'ط + ذ', 'Taa + Thaal', 'ط + ذ'),
-    totalPages: 12,
-    targetText: 'طال طاب طالب ذكر طيب طير طريق ذنب ذكي ظل الطيور المذكور الطريق طلب العلم فريضة على كل مسلم والذكر طمأنينة.',
+    newKeys: kL6,
+    previouslyLearnedKeys: prev5,
     estimatedSeconds: 110,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-3-1',
-    courseId: 'course-beginner',
-    level: 1,
     order: 7,
     titleAr: 'ق + ف (القاف والفاء)',
     titleEn: 'Qaaf + Faa (Top Row Reaches)',
@@ -843,18 +975,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Right index reaches up to Qaaf (R) and left index up to Faa (T).',
     descriptionBn: 'ডান তর্জনী ق (R) এবং বাম তর্জনী ف (T) এর উপরে।',
     difficulty: 'easy',
-    newKeys: ['ق', 'ف'],
-    focusKeys: ['ق', 'ف'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك', 'س', 'ش', 'ط', 'ذ'],
-    pages: generateTwoKeyLessonPages('ق', 'ف', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'], 'ق + ف', 'Qaaf + Faa', 'ق + ف'),
-    totalPages: 12,
-    targetText: 'قف فق قال فاز قلم فريق فكر فوق قفل فتح التفكير الفضيلة القرآن الفرقان كتب القلم كلمات مضيئة وفاز الفريق.',
+    newKeys: kL7,
+    previouslyLearnedKeys: prev6,
     estimatedSeconds: 115,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-3-2',
-    courseId: 'course-beginner',
-    level: 1,
     order: 8,
     titleAr: 'ع + غ (العين والغين)',
     titleEn: 'Ayn + Ghayn (Top Center)',
@@ -863,18 +990,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Right index to Ayn (U) and left index to Ghayn (Y).',
     descriptionBn: 'ডান তর্জনী ع (U) এবং বাম তর্জনী غ (Y) এর উপরে।',
     difficulty: 'medium',
-    newKeys: ['ع', 'غ'],
-    focusKeys: ['ع', 'غ'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك', 'س', 'ش', 'ط', 'ذ', 'ق', 'ف'],
-    pages: generateTwoKeyLessonPages('ع', 'غ', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'], 'ع + غ', 'Ayn + Ghayn', 'ع + غ'),
-    totalPages: 12,
-    targetText: 'عن غن علم غاب عمل غفور عادل غالي عصفور غيم العزيمة الغفران العدالة العملية العلم يرفع بيوتا لا عماد لها.',
+    newKeys: kL8,
+    previouslyLearnedKeys: prev7,
     estimatedSeconds: 115,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-3-3',
-    courseId: 'course-beginner',
-    level: 1,
     order: 9,
     titleAr: 'هـ + خ (الهاء والخاء)',
     titleEn: 'Haa + Khaa (Top Right)',
@@ -883,18 +1005,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Right middle reaches up to Haa (I) and right ring to Khaa (O).',
     descriptionBn: 'ডান মধ্যমা هـ (I) এবং ডান অনামিকা خ (O) এর উপরে।',
     difficulty: 'medium',
-    newKeys: ['ه', 'خ'],
-    focusKeys: ['ه', 'خ'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك', 'س', 'ش'],
-    pages: generateTwoKeyLessonPages('ه', 'خ', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'], 'هـ + خ', 'Haa + Khaa', 'هـ + خ'),
-    totalPages: 12,
-    targetText: 'هو خي خير هناء خبر خاتم نهر خليل همة خالد الهمام الخالدين الأنهار الخيرات الخير في ما اختاره الله والهمة عالية.',
+    newKeys: kL9,
+    previouslyLearnedKeys: prev8,
     estimatedSeconds: 120,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-3-4',
-    courseId: 'course-beginner',
-    level: 1,
     order: 10,
     titleAr: 'ح + ج (الحاء والجيم)',
     titleEn: 'Haa + Jeem (Top Far Right)',
@@ -903,18 +1020,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Right pinky reaches to Haa (P) and Jeem ([).',
     descriptionBn: 'ডান কনিষ্ঠা ح (P) এবং ج ([) এর উপরে।',
     difficulty: 'medium',
-    newKeys: ['ح', 'ج'],
-    focusKeys: ['ح', 'ج'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك', 'س', 'ش', 'ه', 'خ'],
-    pages: generateTwoKeyLessonPages('ح', 'ج', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'], 'ح + ج', 'Haa + Jeem', 'ح + ج'),
-    totalPages: 12,
-    targetText: 'حج جح حكم جمال حلم جبل حسن جناح حجر جميل الحكمية الجماليات الجبال الحكمة الحكمة ضالة المؤمن والجمال خلق.',
+    newKeys: kL10,
+    previouslyLearnedKeys: prev9,
     estimatedSeconds: 120,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-3-5',
-    courseId: 'course-beginner',
-    level: 1,
     order: 11,
     titleAr: 'ص + ض (الصاد والضاد)',
     titleEn: 'Saad + Daad (Top Left)',
@@ -923,18 +1035,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Left pinky reaches up to Daad (Q) and left ring to Saad (W).',
     descriptionBn: 'বাম কনিষ্ঠা ض (Q) এবং বাম অনামিকা ص (W) এর উপরে।',
     difficulty: 'medium',
-    newKeys: ['ص', 'ض'],
-    focusKeys: ['ص', 'ض'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك', 'س', 'ش'],
-    pages: generateTwoKeyLessonPages('ص', 'ض', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'], 'ص + ض', 'Saad + Daad', 'ص + ض'),
-    totalPages: 12,
-    targetText: 'صم ضم صبر ضوء صدق ضيف صباح ضياء صانع ضامن الصابرين الصالحات الوضوء المصباح الصبر مفتاح الفرج وصدق الحديث زينة.',
+    newKeys: kL11,
+    previouslyLearnedKeys: prev10,
     estimatedSeconds: 120,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-3-6',
-    courseId: 'course-beginner',
-    level: 1,
     order: 12,
     titleAr: 'د + ث (الدال والثاء)',
     titleEn: 'Daal + Thaa (Top Outer)',
@@ -943,18 +1050,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Left middle reaches to Thaa (E) and right pinky to Daal (]).',
     descriptionBn: 'বাম মধ্যমা ث (E) এবং ডান কনিষ্ঠা د (]) এর উপরে।',
     difficulty: 'medium',
-    newKeys: ['د', 'ث'],
-    focusKeys: ['د', 'ث'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك', 'س', 'ش'],
-    pages: generateTwoKeyLessonPages('د', 'ث', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'], 'د + ث', 'Daal + Thaa', 'د + ث'),
-    totalPages: 12,
-    targetText: 'دم ثب درس ثمر دار ثقة دافع ثبات درهم ثواب الدراسة الثمرات التدريب الثوابت درس الطالب دروسه بجد وثبت على موقفه.',
+    newKeys: kL12,
+    previouslyLearnedKeys: prev11,
     estimatedSeconds: 120,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-4-1',
-    courseId: 'course-beginner',
-    level: 1,
     order: 13,
     titleAr: 'ر + ى (الراء والألف المقصورة)',
     titleEn: 'Raa + Alif Maqsura (Bottom Row Reach)',
@@ -963,18 +1065,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Left index reaches down to Raa (V) and right index to Alif Maqsura (N).',
     descriptionBn: 'বাম তর্জনী ر (V) এবং ডান তর্জনী ى (N) এর নিচে।',
     difficulty: 'medium',
-    newKeys: ['ر', 'ى'],
-    focusKeys: ['ر', 'ى'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك', 'س', 'ش'],
-    pages: generateTwoKeyLessonPages('ر', 'ى', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'], 'ر + ى', 'Raa + Alif Maqsura', 'ر + ى'),
-    totalPages: 12,
-    targetText: 'رب رى رأى رحمة رمى ريح روى ربيع هدى بشرى الرحيم الرياض البشرى الرؤية الرحمة تعمر القلوب والربيع يكسو الأرض.',
+    newKeys: kL13,
+    previouslyLearnedKeys: prev12,
     estimatedSeconds: 120,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-4-2',
-    courseId: 'course-beginner',
-    level: 1,
     order: 14,
     titleAr: 'ة + و (التاء المربوطة والواو)',
     titleEn: 'Taa Marbuta + Waw (Bottom Row)',
@@ -983,18 +1080,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Left middle reaches to Taa Marbuta (C) and right ring to Waw (,).',
     descriptionBn: 'বাম মধ্যমা ة (C) এবং ডান অনামিকা و (,) এর নিচে।',
     difficulty: 'medium',
-    newKeys: ['ة', 'و'],
-    focusKeys: ['ة', 'و'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك', 'س', 'ش'],
-    pages: generateTwoKeyLessonPages('ة', 'و', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'], 'ة + و', 'Taa Marbuta + Waw', 'ة + و'),
-    totalPages: 12,
-    targetText: 'ورد وطن جنة روعة قوة وردة وعد نور حياة حكمة الوطنية المودة الوردية الأخوة حب الوطن من الإيمان والحكمة نور الحياة.',
+    newKeys: kL14,
+    previouslyLearnedKeys: prev13,
     estimatedSeconds: 125,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-4-3',
-    courseId: 'course-beginner',
-    level: 1,
     order: 15,
     titleAr: 'ز + ظ (الزاي والظاء)',
     titleEn: 'Zay + Dhaa (Bottom Far Reaches)',
@@ -1003,18 +1095,13 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Right middle down to Zay (.) and right pinky down to Dhaa (/).',
     descriptionBn: 'ডান মধ্যমা ز (.) এবং ডান কনিষ্ঠা ظ (/) এর নিচে।',
     difficulty: 'hard',
-    newKeys: ['ز', 'ظ'],
-    focusKeys: ['ز', 'ظ'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك', 'س', 'ش'],
-    pages: generateTwoKeyLessonPages('ز', 'ظ', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'], 'ز + ظ', 'Zay + Dhaa', 'ز + ظ'),
-    totalPages: 12,
-    targetText: 'زر ظل زمن ظفر زهور ظاهر زيت ظرف زائر نظيف الظاهرين الزاهرة الظلال الظفر حليف الصابرين والزهور عطرة.',
+    newKeys: kL15,
+    previouslyLearnedKeys: prev14,
     estimatedSeconds: 125,
-  },
-  {
+  }),
+
+  createBeginnerLesson({
     id: 'l-4-4',
-    courseId: 'course-beginner',
-    level: 1,
     order: 16,
     titleAr: 'ئ + ء + ؤ (أشكال الهمزات)',
     titleEn: 'Hamza Forms (ئ, ء, ؤ)',
@@ -1023,14 +1110,10 @@ export const ALL_LESSONS: Lesson[] = [
     descriptionEn: 'Master all Hamza forms: Ya-Hamza (Z), standalone Hamza (X), and Waw-Hamza (C+Shift).',
     descriptionBn: 'কীবোর্ডের নিচের সারির বিভিন্ন হামজা রূপ অনুশীলন করুন।',
     difficulty: 'hard',
-    newKeys: ['ئ', 'ء'],
-    focusKeys: ['ئ', 'ء', 'ؤ'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك', 'س', 'ش'],
-    pages: generateTwoKeyLessonPages('ئ', 'ء', ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'], 'ئ + ء + ؤ', 'Hamza Forms', 'ئ + ء + ؤ'),
-    totalPages: 12,
-    targetText: 'شيء دفء بدء قارئ لؤلؤ مؤمن بؤس فؤاد ضياء هواء المسؤولية المؤمنين البراءة المؤمن يتفاءل بالخير ويتحمل المسؤولية.',
+    newKeys: kL16,
+    previouslyLearnedKeys: prev15,
     estimatedSeconds: 130,
-  },
+  }),
 
   // -------------------------------------------------------------
   // LEVEL 2: INTERMEDIATE — ARABIC LETTERS + HARAKAT (7 LESSONS)
@@ -1049,7 +1132,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'easy',
     newKeys: ['َ', 'ِ'],
     focusKeys: ['َ', 'ِ'],
-    previouslyLearnedKeys: ['ب', 'ت', 'ي', 'ل', 'ا', 'ن', 'م', 'ك'],
+    previouslyLearnedKeys: ALL_ARABIC_BASE_LETTERS,
+    allowedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ'],
+    forbiddenKeys: ['ُ', 'ْ', 'ّ', 'ً', 'ٍ', 'ٌ'],
     pages: generateHarakatLessonPages(
       'َ',
       'الفتحة والكسرة',
@@ -1079,7 +1164,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'medium',
     newKeys: ['ُ', 'ْ'],
     focusKeys: ['ُ', 'ْ'],
-    previouslyLearnedKeys: ['َ', 'ِ'],
+    previouslyLearnedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ'],
+    allowedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ', 'ُ', 'ْ'],
+    forbiddenKeys: ['ّ', 'ً', 'ٍ', 'ٌ'],
     pages: generateHarakatLessonPages(
       'ُ',
       'الضمة والسكون',
@@ -1109,7 +1196,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'medium',
     newKeys: ['ّ'],
     focusKeys: ['ّ', 'َّ', 'ُّ', 'ِّ'],
-    previouslyLearnedKeys: ['َ', 'ِ', 'ُ', 'ْ'],
+    previouslyLearnedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ', 'ُ', 'ْ'],
+    allowedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ', 'ُ', 'ْ', 'ّ'],
+    forbiddenKeys: ['ً', 'ٍ', 'ٌ'],
     pages: generateHarakatLessonPages(
       'ّ',
       'الشدة والتضعيف',
@@ -1139,7 +1228,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'medium',
     newKeys: ['ً', 'ٍ'],
     focusKeys: ['ً', 'ٍ'],
-    previouslyLearnedKeys: ['َ', 'ِ', 'ُ', 'ْ', 'ّ'],
+    previouslyLearnedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ', 'ُ', 'ْ', 'ّ'],
+    allowedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ', 'ُ', 'ْ', 'ّ', 'ً', 'ٍ'],
+    forbiddenKeys: ['ٌ'],
     pages: generateHarakatLessonPages(
       'ً',
       'تنوين الفتح والكسر',
@@ -1169,7 +1260,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'hard',
     newKeys: ['ٌ'],
     focusKeys: ['ٌ'],
-    previouslyLearnedKeys: ['َ', 'ِ', 'ُ', 'ْ', 'ّ', 'ً', 'ٍ'],
+    previouslyLearnedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ', 'ُ', 'ْ', 'ّ', 'ً', 'ٍ'],
+    allowedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ', 'ُ', 'ْ', 'ّ', 'ً', 'ٍ', 'ٌ'],
+    forbiddenKeys: [],
     pages: generateHarakatLessonPages(
       'ٌ',
       'تنوين الضم والهمزة',
@@ -1199,7 +1292,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'hard',
     newKeys: ['ّ', 'َ', 'ِ', 'ُ'],
     focusKeys: ['َ', 'ِ', 'ُ', 'ْ', 'ّ', 'ً', 'ٍ', 'ٌ'],
-    previouslyLearnedKeys: ['َ', 'ِ', 'ُ', 'ْ', 'ّ', 'ً', 'ٍ', 'ٌ'],
+    previouslyLearnedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ', 'ُ', 'ْ', 'ّ', 'ً', 'ٍ', 'ٌ'],
+    allowedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ', 'ُ', 'ْ', 'ّ', 'ً', 'ٍ', 'ٌ'],
+    forbiddenKeys: [],
     pages: generateHarakatLessonPages(
       'َ',
       'التراكيب المشكولة التامة',
@@ -1229,7 +1324,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'advanced',
     newKeys: ['ّ', 'َ', 'ِ', 'ُ', 'ْ'],
     focusKeys: ['َ', 'ِ', 'ُ', 'ْ', 'ّ', 'ً', 'ٍ', 'ٌ'],
-    previouslyLearnedKeys: ['َ', 'ِ', 'ُ', 'ْ', 'ّ', 'ً', 'ٍ', 'ٌ'],
+    previouslyLearnedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ', 'ُ', 'ْ', 'ّ', 'ً', 'ٍ', 'ٌ'],
+    allowedKeys: [...ALL_ARABIC_BASE_LETTERS, 'َ', 'ِ', 'ُ', 'ْ', 'ّ', 'ً', 'ٍ', 'ٌ'],
+    forbiddenKeys: [],
     pages: generateHarakatLessonPages(
       'َ',
       'النصوص المشكولة الكاملة',
@@ -1263,7 +1360,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'medium',
     newKeys: ['ف', 'س', 'ك', 'ي', 'ه'],
     focusKeys: ['فَسَيَكْفِيكَهُمُ', 'وَاسْتَسْقَيْنَاكُمُوهَا'],
-    previouslyLearnedKeys: ['ا', 'ب', 'ت', 'ث', 'ج', 'ح', 'خ', 'د', 'ذ', 'ر', 'ز', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ', 'ع', 'غ', 'ف', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'و', 'ي'],
+    previouslyLearnedKeys: ALL_ARABIC_BASE_LETTERS,
+    allowedKeys: ALL_ARABIC_BASE_LETTERS,
+    forbiddenKeys: [],
     pages: generateAdvancedLessonPages(
       'الكلمات الطويلة والمركبة',
       'Long & Complex Words',
@@ -1292,7 +1391,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'medium',
     newKeys: ['،', '؟', ':', '.', '١', '٢', '٣'],
     focusKeys: ['،', '؟', ':', '.', '١', '٢', '٣', '٤', '٥'],
-    previouslyLearnedKeys: ['ا', 'ب', 'ت', 'ث', 'ج', 'ح'],
+    previouslyLearnedKeys: ALL_ARABIC_BASE_LETTERS,
+    allowedKeys: [...ALL_ARABIC_BASE_LETTERS, '،', '؟', ':', '.', '١', '٢', '٣', '٤', '٥', '«', '»', '؛', '!'],
+    forbiddenKeys: [],
     pages: generateAdvancedLessonPages(
       'علامات الترقيم والأرقام',
       'Punctuation & Numbers',
@@ -1321,7 +1422,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'medium',
     newKeys: ['ر', 'س', 'م', 'ي'],
     focusKeys: ['الرسمية', 'التربوية', 'التقارير'],
-    previouslyLearnedKeys: ['ا', 'ل', 'م', 'ع', 'ل', 'م'],
+    previouslyLearnedKeys: ALL_ARABIC_BASE_LETTERS,
+    allowedKeys: ALL_ARABIC_BASE_LETTERS,
+    forbiddenKeys: [],
     pages: generateAdvancedLessonPages(
       'الجمل الرسمية والتربوية',
       'Formal & Educational Sentences',
@@ -1350,7 +1453,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'hard',
     newKeys: ['ص', 'ح', 'ف', 'ة'],
     focusKeys: ['الصحافة', 'الإعلام', 'الأخبار'],
-    previouslyLearnedKeys: ['ا', 'ل', 'ص', 'ح', 'ف'],
+    previouslyLearnedKeys: ALL_ARABIC_BASE_LETTERS,
+    allowedKeys: ALL_ARABIC_BASE_LETTERS,
+    forbiddenKeys: [],
     pages: generateAdvancedLessonPages(
       'الفقرات الإخبارية المعاصرة',
       'Modern Journalistic Paragraphs',
@@ -1379,7 +1484,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'hard',
     newKeys: ['ش', 'ع', 'ر', 'أ', 'د', 'ب'],
     focusKeys: ['الأدب', 'الشعر', 'البلاغة'],
-    previouslyLearnedKeys: ['ا', 'ل', 'ش', 'ع', 'ر'],
+    previouslyLearnedKeys: ALL_ARABIC_BASE_LETTERS,
+    allowedKeys: ALL_ARABIC_BASE_LETTERS,
+    forbiddenKeys: [],
     pages: generateAdvancedLessonPages(
       'روائع الأدب والشعر العربي',
       'Literary Prose & Poetry',
@@ -1408,7 +1515,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'hard',
     newKeys: ['ت', 'ر', 'ا', 'ث'],
     focusKeys: ['التراث', 'الفصاحة', 'البلاغة'],
-    previouslyLearnedKeys: ['ا', 'ل', 'ت', 'ر', 'ا', 'ث'],
+    previouslyLearnedKeys: ALL_ARABIC_BASE_LETTERS,
+    allowedKeys: ALL_ARABIC_BASE_LETTERS,
+    forbiddenKeys: [],
     pages: generateAdvancedLessonPages(
       'نصوص التراث والفصاحة العربية',
       'Classical Arabic Heritage',
@@ -1437,7 +1546,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'advanced',
     newKeys: ['س', 'ر', 'ع', 'ة'],
     focusKeys: ['السرعة', 'الانسيابية', 'التدفق'],
-    previouslyLearnedKeys: ['ا', 'ل', 'س', 'ر', 'ع', 'ة'],
+    previouslyLearnedKeys: ALL_ARABIC_BASE_LETTERS,
+    allowedKeys: ALL_ARABIC_BASE_LETTERS,
+    forbiddenKeys: [],
     pages: generateAdvancedLessonPages(
       'تدريبات السرعة والتدفق المتقدم',
       'High-Velocity Speed Cadence',
@@ -1466,7 +1577,9 @@ export const ALL_LESSONS: Lesson[] = [
     difficulty: 'advanced',
     newKeys: ['إ', 'ت', 'ق', 'ا', 'ن'],
     focusKeys: ['الماراثون', 'الإتقان', 'الاحتراف'],
-    previouslyLearnedKeys: ['ا', 'ب', 'ت', 'ث', 'ج', 'ح', 'خ', 'د', 'ذ', 'ر', 'ز', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ', 'ع', 'غ', 'ف', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'و', 'ي'],
+    previouslyLearnedKeys: ALL_ARABIC_BASE_LETTERS,
+    allowedKeys: ALL_ARABIC_BASE_LETTERS,
+    forbiddenKeys: [],
     pages: generateAdvancedLessonPages(
       'الماراثون النهائي والإتقان المطلق',
       'Professional Mastery Marathon',

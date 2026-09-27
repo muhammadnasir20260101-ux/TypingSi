@@ -215,6 +215,8 @@ export interface Lesson {
   focusKeys: string[];
   newKeys?: [string, string] | string[]; // 2 newly introduced keys
   previouslyLearnedKeys?: string[];
+  allowedKeys?: string[];
+  forbiddenKeys?: string[];
   pages: LessonPage[];
   totalPages: number;
   targetCharacters?: string[];

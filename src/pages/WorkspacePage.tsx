@@ -22,6 +22,7 @@ import { KeyboardVisualizer } from '../components/KeyboardVisualizer';
 import { LessonCompletionModal } from '../components/LessonCompletionModal';
 import { LessonTypingArea } from '../components/LessonTypingArea';
 import { getTranslation } from '../data/translations';
+import { sanitizeLessonText } from '../data/lessonValidator';
 
 import { DesktopCourseSidebar, SidebarSection } from '../components/DesktopCourseSidebar';
 
@@ -117,7 +118,10 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   }, [currentLesson.id, totalPages]);
 
   const activePage = lessonPages[pageIndex] || lessonPages[0];
-  const activeTargetText = activePage.targetText;
+  const activeTargetText =
+    currentLesson.courseId === 'course-beginner' && currentLesson.allowedKeys
+      ? sanitizeLessonText(activePage.targetText, currentLesson.allowedKeys)
+      : activePage.targetText;
 
   // Typing Engine Hook for active page
   const {
