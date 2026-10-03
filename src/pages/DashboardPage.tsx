@@ -101,40 +101,61 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 max-w-3xl space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{settings.language === 'en' ? 'Professional Touch Typing' : settings.language === 'bn' ? 'প্রফেশনাল টাচ টাইপিং' : 'منصة تعليمية معتمدة للطباعة باللمس'}</span>
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="max-w-2xl space-y-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold">
+              <img src="/icon.png" alt="Typing Sikhi Logo" className="w-5 h-5 rounded-md object-contain shrink-0" />
+              <span>{settings.language === 'en' ? 'Professional Touch Typing' : settings.language === 'bn' ? 'প্রফেশনাল টাচ টাইপিং' : 'منصة تعليمية معتمدة للطباعة باللمس'}</span>
+            </div>
+
+            <div className="flex items-center gap-3.5 sm:gap-4">
+              <img
+                src="/icon.png"
+                alt="Typing Sikhi Logo"
+                className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl object-contain shadow-lg shrink-0"
+              />
+              <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight font-['Noto_Naskh_Arabic','Alexandria',sans-serif]">
+                {t('heroTitle')}
+              </h2>
+            </div>
+
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-2xl">
+              {t('heroSubtitle')}
+            </p>
+
+            <div className="pt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                id="hero-start-learning-btn"
+                onClick={() => onStartLesson(currentLesson.id)}
+                className="py-3.5 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 active:scale-98 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/25 transition-all flex items-center gap-2.5 cursor-pointer"
+              >
+                <Play className="w-4 h-4 fill-slate-950" />
+                <span>{t('startLearning')}</span>
+              </button>
+
+              <button
+                type="button"
+                id="hero-typing-test-btn"
+                onClick={onGoToTest}
+                className="py-3.5 px-6 rounded-2xl bg-slate-800 hover:bg-slate-700 active:scale-98 text-white border border-slate-700 font-bold text-sm shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <Timer className="w-4 h-4 text-amber-400" />
+                <span>{t('takeTest')}</span>
+              </button>
+            </div>
           </div>
 
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight font-['Noto_Naskh_Arabic','Alexandria',sans-serif]">
-            {t('heroTitle')}
-          </h2>
-
-          <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-2xl">
-            {t('heroSubtitle')}
-          </p>
-
-          <div className="pt-3 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              id="hero-start-learning-btn"
-              onClick={() => onStartLesson(currentLesson.id)}
-              className="py-3.5 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 active:scale-98 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/25 transition-all flex items-center gap-2.5 cursor-pointer"
-            >
-              <Play className="w-4 h-4 fill-slate-950" />
-              <span>{t('startLearning')}</span>
-            </button>
-
-            <button
-              type="button"
-              id="hero-typing-test-btn"
-              onClick={onGoToTest}
-              className="py-3.5 px-6 rounded-2xl bg-slate-800 hover:bg-slate-700 active:scale-98 text-white border border-slate-700 font-bold text-sm shadow-sm transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <Timer className="w-4 h-4 text-amber-400" />
-              <span>{t('takeTest')}</span>
-            </button>
+          {/* Hero Branding / Logo Display */}
+          <div className="hidden lg:flex flex-col items-center justify-center p-3 rounded-2xl shrink-0 self-center">
+            <img
+              src="/icon.png"
+              alt="Typing Sikhi"
+              className="w-24 h-24 lg:w-28 lg:h-28 rounded-2xl object-contain shadow-2xl"
+            />
+            <span className="mt-2 text-xs font-bold text-emerald-300 tracking-wide">
+              Typing Sikhi
+            </span>
           </div>
         </div>
       </section>

@@ -150,11 +150,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Brand Logo & Title */}
           <div
             onClick={() => onSelectTab('dashboard')}
-            className="flex items-center gap-2 cursor-pointer select-none group shrink-0"
+            className="flex items-center gap-2.5 cursor-pointer select-none group shrink-0"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform shrink-0">
-              <Keyboard className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
+            <img
+              src="/icon.png"
+              alt="Typing Sikhi Logo"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl shrink-0 object-contain shadow-xs group-hover:scale-105 transition-transform"
+            />
             <div className="shrink-0">
               <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white leading-tight">
                 Typing Sikhi

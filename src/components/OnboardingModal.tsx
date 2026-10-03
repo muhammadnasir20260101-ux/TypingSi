@@ -47,9 +47,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         {/* Step 1: Welcome & Value Proposition */}
         {step === 1 && (
           <div className="space-y-4 animate-in fade-in zoom-in-95">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Keyboard className="w-8 h-8" />
-            </div>
+            <img src="/icon.png" alt="Typing Sikhi" className="w-16 h-16 rounded-2xl mx-auto shadow-md object-contain" />
 
             <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 font-['Noto_Naskh_Arabic','Alexandria',sans-serif]">
               {t('welcomeOnboardingTitle')}
