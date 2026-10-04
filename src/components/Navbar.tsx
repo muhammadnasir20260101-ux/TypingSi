@@ -151,16 +151,24 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div
             onClick={() => onSelectTab('dashboard')}
             className="flex items-center gap-2.5 cursor-pointer select-none group shrink-0"
+            role="button"
+            aria-label="Typing Sikhi Home"
+            tabIndex={0}
           >
             <img
               src="/icon.png"
               alt="Typing Sikhi Logo"
+              width="44"
+              height="44"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl shrink-0 object-contain shadow-xs group-hover:scale-105 transition-transform"
             />
             <div className="shrink-0">
-              <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+              <span className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white leading-tight block">
                 Typing Sikhi
-              </h1>
+              </span>
               <span className="text-[10px] block font-semibold text-emerald-600 dark:text-emerald-400 leading-tight">
                 {settings.language === 'en' ? 'Arabic Typing Platform' : settings.language === 'bn' ? 'আরবি টাইপিং প্ল্যাটফর্ম' : 'طِبَاعَة — تعلم الطباعة'}
               </span>

@@ -20,7 +20,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
 
     // Hero
     heroTitle: 'تعلم الكتابة بالعربية بسرعة واحتراف',
-    heroSubtitle: 'منصة تفاعلية متكاملة تعلمك وضعية الأصابع الصحيحة على لوحة المفاتيح والطباعة باللمس خطوة بخطوة حتى الإتقان الكامل.',
+    heroSubtitle: 'منصة Typing Sikhi التفاعلية لتعليم وضعية الأصابع الصحيحة على لوحة المفاتيح والطباعة العربية باللمس خطوة بخطوة حتى الإتقان.',
     startLearning: 'ابدأ التعلم الآن',
     takeTest: 'اختبار سرعة الكتابة',
 
@@ -308,7 +308,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     navSettings: 'Settings',
 
     heroTitle: 'Learn Arabic Typing with Speed & Precision',
-    heroSubtitle: 'A structured, professional Arabic typing platform that teaches you proper 10-finger keyboard positioning step by step to true mastery.',
+    heroSubtitle: 'Typing Sikhi is an Arabic touch typing practice platform designed to help learners improve Arabic typing speed, accuracy, and keyboard skills through structured lessons and speed tests.',
     startLearning: 'Start Learning Now',
     takeTest: 'Take a Typing Test',
 
@@ -581,7 +581,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     navSettings: 'সেটিংস',
 
     heroTitle: 'দ্রুত ও নির্ভুল আরবি টাইপিং শিখুন',
-    heroSubtitle: 'কম্পিউটার কীবোর্ডে সঠিক আঙুল অবস্থানের মাধ্যমে ধাপে ধাপে আরবি টাচ টাইপিংয়ে দক্ষতা অর্জন করুন।',
+    heroSubtitle: 'Typing Sikhi — কম্পিউটার কীবোর্ডে সঠিক আঙুল অবস্থানের মাধ্যমে ধাপে ধাপে আরবি টাচ টাইপিং, নির্ভুলতা ও স্পিড টেস্ট অনুশীলনের পূর্ণাঙ্গ প্ল্যাটফর্ম।',
     startLearning: 'শেখা শুরু করুন',
     takeTest: 'টাইপিং স্পিড টেস্ট দিন',
 

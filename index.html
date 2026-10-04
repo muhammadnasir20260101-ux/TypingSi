@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
 
     <!-- Primary SEO Meta Tags -->
-    <title>Typing Sikhi – Arabic Touch Typing Platform & Speed Test</title>
-    <meta name="title" content="Typing Sikhi – Arabic Touch Typing Platform & Speed Test" />
-    <meta name="description" content="Master Arabic touch typing with structured 10-finger lessons, real-time speed tests, accuracy tracking, and mistake analysis on Typing Sikhi." />
+    <title>Typing Sikhi – Arabic Touch Typing Practice & Speed Test</title>
+    <meta name="title" content="Typing Sikhi – Arabic Touch Typing Practice & Speed Test" />
+    <meta name="description" content="Practice Arabic touch typing with structured keyboard lessons, real-time typing speed tests, accuracy tracking, and mistake analysis on Typing Sikhi." />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://typingsikhi.vercel.app/" />
 
@@ -15,36 +15,63 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Typing Sikhi" />
     <meta property="og:url" content="https://typingsikhi.vercel.app/" />
-    <meta property="og:title" content="Typing Sikhi – Arabic Touch Typing Platform & Speed Test" />
-    <meta property="og:description" content="Master Arabic touch typing with structured 10-finger lessons, real-time speed tests, accuracy tracking, and mistake analysis on Typing Sikhi." />
+    <meta property="og:title" content="Typing Sikhi – Arabic Touch Typing Practice & Speed Test" />
+    <meta property="og:description" content="Practice Arabic touch typing with structured keyboard lessons, real-time typing speed tests, accuracy tracking, and mistake analysis on Typing Sikhi." />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://typingsikhi.vercel.app/" />
-    <meta name="twitter:title" content="Typing Sikhi – Arabic Touch Typing Platform & Speed Test" />
-    <meta name="twitter:description" content="Master Arabic touch typing with structured 10-finger lessons, real-time speed tests, accuracy tracking, and mistake analysis on Typing Sikhi." />
+    <meta name="twitter:title" content="Typing Sikhi – Arabic Touch Typing Practice & Speed Test" />
+    <meta name="twitter:description" content="Practice Arabic touch typing with structured keyboard lessons, real-time typing speed tests, accuracy tracking, and mistake analysis on Typing Sikhi." />
 
     <!-- Schema.org Structured Data (JSON-LD) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": "Typing Sikhi",
-      "alternateName": ["Tibaa", "طِبَاعَة"],
-      "url": "https://typingsikhi.vercel.app/",
-      "description": "Interactive Arabic touch typing platform with structured lessons, finger placement guides, typing speed tests, and accuracy analytics.",
-      "applicationCategory": "EducationalApplication",
-      "operatingSystem": "All",
-      "inLanguage": ["ar", "bn", "en"],
-      "author": {
-        "@type": "Person",
-        "name": "Md Nasir Hossain"
-      },
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      }
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://typingsikhi.vercel.app/#website",
+          "url": "https://typingsikhi.vercel.app/",
+          "name": "Typing Sikhi",
+          "alternateName": ["TypingSikhi", "Tibaa", "طِبَاعَة"],
+          "description": "Official website of Typing Sikhi — an Arabic touch typing practice platform with structured keyboard lessons and typing speed tests.",
+          "inLanguage": ["ar", "bn", "en"],
+          "publisher": {
+            "@type": "Person",
+            "name": "Md Nasir Hossain"
+          }
+        },
+        {
+          "@type": "WebApplication",
+          "@id": "https://typingsikhi.vercel.app/#webapp",
+          "url": "https://typingsikhi.vercel.app/",
+          "name": "Typing Sikhi",
+          "alternateName": ["TypingSikhi", "Tibaa", "طِبَاعَة"],
+          "applicationCategory": "EducationalApplication",
+          "operatingSystem": "All",
+          "browserRequirements": "Requires JavaScript. Requires HTML5.",
+          "description": "Typing Sikhi is an Arabic touch typing practice platform designed to help learners improve Arabic typing speed, accuracy, and keyboard skills through structured lessons and speed tests.",
+          "inLanguage": ["ar", "bn", "en"],
+          "author": {
+            "@type": "Person",
+            "name": "Md Nasir Hossain"
+          },
+          "featureList": [
+            "Arabic touch typing lessons",
+            "10-finger placement guide",
+            "Arabic 101 keyboard layout practice",
+            "Real-time typing speed test (WPM & CPM)",
+            "Typing accuracy and mistake review",
+            "Offline practice ready"
+          ],
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          }
+        }
+      ]
     }
     </script>
 
@@ -78,6 +105,12 @@
     </script>
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased selection:bg-emerald-500 selection:text-white dark:bg-slate-950 dark:text-slate-100 min-h-screen">
+    <noscript>
+      <div style="padding: 24px; text-align: center; font-family: sans-serif;">
+        <h1>Typing Sikhi – Arabic Touch Typing Practice & Speed Test</h1>
+        <p>Typing Sikhi is an Arabic touch typing practice platform designed to help learners improve Arabic typing speed, accuracy and keyboard skills through structured lessons and typing tests.</p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
